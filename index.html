@@ -214,6 +214,13 @@
       box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
     }
 
+    .videos are {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
     .videos {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -437,7 +444,7 @@
 
   <footer>
     <span>Close or reload this tab = all keys & messages gone.</span>
-    <span>For most NATs you’ll need both peers on relatively open networks (no TURN here).</span>
+    <span>Uses public STUN+TURN (OpenRelay); for heavy use, configure your own TURN.</span>
   </footer>
 
   <script>
@@ -595,8 +602,26 @@
     function createPeerConnection() {
       const config = {
         iceServers: [
-          { urls: "stun:stun.l.google.com:19302" }
-        ]
+          // Google STUN (fallback)
+          { urls: "stun:stun.l.google.com:19302" },
+          // OpenRelay / Metered free STUN+TURN
+          { urls: "stun:openrelay.metered.ca:80" },
+          {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+          {
+            urls: "turn:openrelay.metered.ca:443?transport=tcp",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          },
+        ],
       };
 
       pc = new RTCPeerConnection(config);
@@ -750,32 +775,32 @@
           log("No offer blob provided.");
           return;
         }
-    
+
         resetState();
         isHost = false;
-    
+
         log("Accepting remote offer…");
         const blob = JSON.parse(atob(base64));
         if (!blob.sdp || !blob.key) {
           log("Invalid offer blob.");
           return;
         }
-    
+
         createPeerConnection();
         sharedKey = await importKeyJwk(blob.key);
         log("Shared AES key imported from offer.");
-    
+
         await pc.setRemoteDescription(blob.sdp);
         log("Remote description set from offer.");
-    
+
         await getLocalMedia();
-    
+
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         log("Local answer created, waiting for ICE gathering complete…");
-    
+
         await waitForIceGatheringComplete(pc);
-    
+
         const answerBlob = {
           role: "guest",
           sdp: pc.localDescription
