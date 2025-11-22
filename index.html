@@ -745,41 +745,42 @@
 
     document.getElementById("btnAcceptOffer").addEventListener("click", async () => {
       try {
-        resetState();
-        isHost = false;
         const base64 = offerIn.value.trim();
         if (!base64) {
           log("No offer blob provided.");
           return;
         }
+    
+        resetState();
+        isHost = false;
+    
         log("Accepting remote offer…");
         const blob = JSON.parse(atob(base64));
         if (!blob.sdp || !blob.key) {
           log("Invalid offer blob.");
           return;
         }
-
+    
         createPeerConnection();
         sharedKey = await importKeyJwk(blob.key);
         log("Shared AES key imported from offer.");
-
+    
         await pc.setRemoteDescription(blob.sdp);
         log("Remote description set from offer.");
-
+    
         await getLocalMedia();
-
+    
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         log("Local answer created, waiting for ICE gathering complete…");
-
+    
         await waitForIceGatheringComplete(pc);
-
+    
         const answerBlob = {
           role: "guest",
           sdp: pc.localDescription
         };
-        const answerBase64 = btoa(JSON.stringify(answerBlob));
-        answerOut.value = answerBase64;
+        answerOut.value = btoa(JSON.stringify(answerBlob));
         log("Answer blob ready. Copy and send it back to the host.");
       } catch (e) {
         log("Error while accepting offer: " + e);
