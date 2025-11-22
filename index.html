@@ -25,8 +25,15 @@
       padding: 1rem 1.5rem;
       border-bottom: 1px solid #1f2937;
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    header > div {
+      display: flex;
+      flex-direction: row;
+      gap: 0.2rem;
     }
 
     header h1 {
@@ -214,13 +221,6 @@
       box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
     }
 
-    .videos are {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
     .videos {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -341,11 +341,8 @@
 <body>
   <header>
     <div class="lock-badge">
-      <span>🔒 E2E P2P</span>
+      <span>🔒 E2E P2P Encrypted AV Cha</span>
       <span>AES-256 • WebRTC</span>
-    </div>
-    <div>
-      <h1>P2P Encrypted AV Chat</h1>
       <span>Messages & keys live only in this tab.</span>
     </div>
   </header>
@@ -403,6 +400,14 @@
 
       <div>
         <h3>Media</h3>
+
+        <label class="status-line" style="display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
+          <input type="checkbox" id="chkMedia" checked style="margin:0;" />
+          <span style="font-size:0.75rem;">
+            Use camera &amp; mic (optional – uncheck for chat-only)
+          </span>
+        </label>
+
         <div class="videos">
           <div>
             <div class="label">You</div>
@@ -444,11 +449,23 @@
 
   <footer>
     <span>Close or reload this tab = all keys & messages gone.</span>
-    <span>Uses public STUN+TURN (OpenRelay); for heavy use, configure your own TURN.</span>
+    <span>STUN only by default. Add your own TURN credentials for better NAT traversal.</span>
   </footer>
 
   <script>
-    // --- Global state ---
+    // ---------- ICE SERVERS (STUN + optional TURN) ----------
+    // For TURN, plug in your own service here (e.g. from a TURN provider).
+    const ICE_SERVERS = [
+      { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+      // Example TURN entry (replace with your own; this is just a template):
+      // {
+      //   urls: "turn:your.turn.server:3478",
+      //   username: "user",
+      //   credential: "pass"
+      // }
+    ];
+
+    // ---------- Global state ----------
     let pc = null;                  // RTCPeerConnection
     let dataChannel = null;         // RTCDataChannel
     let sharedKey = null;           // CryptoKey (AES-GCM)
@@ -468,10 +485,12 @@
     const answerOut = document.getElementById("answerOut");
     const answerIn = document.getElementById("answerIn");
     const chatInput = document.getElementById("chatInput");
+    const mediaCheckbox = document.getElementById("chkMedia");
 
     const localVideo = document.getElementById("localVideo");
     const remoteVideo = document.getElementById("remoteVideo");
 
+    // ---------- Logging & UI helpers ----------
     function log(message) {
       const now = new Date();
       const hh = String(now.getHours()).padStart(2, "0");
@@ -506,6 +525,10 @@
           copyStatus.textContent = "";
         }
       }, 2000);
+    }
+
+    function shouldUseMedia() {
+      return mediaCheckbox && mediaCheckbox.checked;
     }
 
     function resetState() {
@@ -549,7 +572,7 @@
       log("Ready. Create an offer to start.");
     }
 
-    // --- Crypto helpers (AES-GCM) ---
+    // ---------- Crypto helpers (AES-GCM, raw key = short string) ----------
     async function generateSharedKey() {
       return crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
@@ -558,14 +581,34 @@
       );
     }
 
-    async function exportKeyJwk(key) {
-      return crypto.subtle.exportKey("jwk", key);
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
     }
 
-    async function importKeyJwk(jwk) {
+    function base64ToArrayBuffer(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    }
+
+    async function exportKeyBase64(key) {
+      const raw = await crypto.subtle.exportKey("raw", key); // 32 bytes
+      return arrayBufferToBase64(raw); // short string (~44 chars)
+    }
+
+    async function importKeyBase64(b64) {
+      const raw = base64ToArrayBuffer(b64);
       return crypto.subtle.importKey(
-        "jwk",
-        jwk,
+        "raw",
+        raw,
         { name: "AES-GCM" },
         true,
         ["encrypt", "decrypt"]
@@ -598,33 +641,9 @@
       return new TextDecoder().decode(plaintext);
     }
 
-    // --- WebRTC helpers ---
+    // ---------- WebRTC helpers ----------
     function createPeerConnection() {
-      const config = {
-        iceServers: [
-          // Google STUN (fallback)
-          { urls: "stun:stun.l.google.com:19302" },
-          // OpenRelay / Metered free STUN+TURN
-          { urls: "stun:openrelay.metered.ca:80" },
-          {
-            urls: "turn:openrelay.metered.ca:80",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443?transport=tcp",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-        ],
-      };
-
-      pc = new RTCPeerConnection(config);
+      pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
       pc.oniceconnectionstatechange = () => {
         const state = pc.iceConnectionState;
@@ -648,7 +667,7 @@
       };
 
       pc.ondatachannel = (event) => {
-        // This is used by the guest side when host created the channel
+        // Guest receives DataChannel created by host
         log("DataChannel received (guest).");
         dataChannel = event.channel;
         setupDataChannelHandlers();
@@ -712,7 +731,7 @@
       log("Local media stream acquired.");
     }
 
-    // --- Chat UI ---
+    // ---------- Chat UI ----------
     function appendChatMessage(from, text) {
       const div = document.createElement("div");
       div.className = "msg " + (from === "me" ? "me" : "peer");
@@ -730,7 +749,7 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // --- Button handlers ---
+    // ---------- Button handlers ----------
     document.getElementById("btnCreateOffer").addEventListener("click", async () => {
       try {
         resetState();
@@ -741,7 +760,11 @@
         sharedKey = await generateSharedKey();
         log("Shared AES key generated.");
 
-        await getLocalMedia();
+        if (shouldUseMedia()) {
+          await getLocalMedia();
+        } else {
+          log("Skipping local media (chat-only mode).");
+        }
 
         // Host creates DataChannel
         dataChannel = pc.createDataChannel("chat");
@@ -753,12 +776,15 @@
         log("Local description set, waiting for ICE gathering complete…");
 
         await waitForIceGatheringComplete(pc);
-        const keyJwk = await exportKeyJwk(sharedKey);
 
+        const keyB64 = await exportKeyBase64(sharedKey);
+
+        // Compressed blob: v = version, r = role, s = sdp, k = key
         const blob = {
-          role: "host",
-          sdp: pc.localDescription,
-          key: keyJwk
+          v: 1,
+          r: "h",
+          s: pc.localDescription,
+          k: keyB64
         };
         const base64 = btoa(JSON.stringify(blob));
         offerOut.value = base64;
@@ -780,20 +806,31 @@
         isHost = false;
 
         log("Accepting remote offer…");
-        const blob = JSON.parse(atob(base64));
-        if (!blob.sdp || !blob.key) {
+        let blob;
+        try {
+          blob = JSON.parse(atob(base64));
+        } catch (err) {
+          log("Failed to decode offer blob (maybe truncated?): " + err);
+          return;
+        }
+        if (!blob.s || !blob.k) {
           log("Invalid offer blob.");
           return;
         }
 
         createPeerConnection();
-        sharedKey = await importKeyJwk(blob.key);
+
+        sharedKey = await importKeyBase64(blob.k);
         log("Shared AES key imported from offer.");
 
-        await pc.setRemoteDescription(blob.sdp);
+        await pc.setRemoteDescription(blob.s);
         log("Remote description set from offer.");
 
-        await getLocalMedia();
+        if (shouldUseMedia()) {
+          await getLocalMedia();
+        } else {
+          log("Skipping local media (chat-only mode).");
+        }
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -802,8 +839,9 @@
         await waitForIceGatheringComplete(pc);
 
         const answerBlob = {
-          role: "guest",
-          sdp: pc.localDescription
+          v: 1,
+          r: "g",
+          s: pc.localDescription
         };
         answerOut.value = btoa(JSON.stringify(answerBlob));
         log("Answer blob ready. Copy and send it back to the host.");
@@ -824,12 +862,20 @@
           return;
         }
         log("Applying remote answer…");
-        const blob = JSON.parse(atob(base64));
-        if (!blob.sdp) {
+
+        let blob;
+        try {
+          blob = JSON.parse(atob(base64));
+        } catch (err) {
+          log("Failed to decode answer blob (maybe truncated?): " + err);
+          return;
+        }
+        if (!blob.s) {
           log("Invalid answer blob.");
           return;
         }
-        await pc.setRemoteDescription(blob.sdp);
+
+        await pc.setRemoteDescription(blob.s);
         log("Remote description set from answer.");
       } catch (e) {
         log("Error while applying answer: " + e);
@@ -888,7 +934,7 @@
       resetState();
     });
 
-    // Init
+    // ---------- Init ----------
     resetState();
 
     window.addEventListener("beforeunload", () => {
