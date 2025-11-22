@@ -2,842 +2,854 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>P2P-EAVC</title>
+  <title>P2P Encrypted A/V Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      color-scheme: dark;
     }
 
     body {
-      margin: 0;
-      padding: 0;
+      background: #0b1120;
+      color: #e5e7eb;
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
+      padding: 16px;
     }
 
-    header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #1f2937;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
+    .app {
+      width: 100%;
+      max-width: 1100px;
       background: #020617;
-    }
-
-    header h1 {
-      margin: 0;
-      font-size: 1.1rem;
-      font-weight: 600;
-    }
-
-    header small {
-      opacity: 0.7;
-      font-size: 0.8rem;
-    }
-
-    main {
-      flex: 1;
+      border-radius: 16px;
+      border: 1px solid #1f2937;
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-      gap: 1rem;
-      padding: 1rem;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 2fr);
+      gap: 16px;
+      padding: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
     }
 
     @media (max-width: 900px) {
-      main {
+      .app {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto;
       }
     }
 
-    .card {
-      border-radius: 0.9rem;
-      border: 1px solid #1f2937;
-      background: radial-gradient(circle at top left, #0f172a, #020617);
-      padding: 0.9rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
+    h1 {
+      font-size: 1.3rem;
+      margin-bottom: 4px;
     }
 
-    .card h2 {
-      margin: 0;
-      font-size: 0.95rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .card h3 {
-      margin: 0;
-      font-size: 0.9rem;
-      font-weight: 500;
-    }
-
-    .section-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      margin-top: 0.4rem;
-    }
-
-    .section-row label {
+    .status {
       font-size: 0.8rem;
-      opacity: 0.8;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 80px;
-      resize: vertical;
-      padding: 0.5rem;
-      border-radius: 0.6rem;
-      border: 1px solid #374151;
-      background: #020617;
-      color: inherit;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.75rem;
-      box-sizing: border-box;
-    }
-
-    textarea:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
-    }
-
-    button {
-      padding: 0.4rem 0.8rem;
-      border-radius: 999px;
-      border: 1px solid #374151;
-      background: #020617;
-      color: inherit;
-      font-size: 0.8rem;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      white-space: nowrap;
-    }
-
-    button.primary {
-      border-color: #3b82f6;
-      background: #1d4ed8;
-    }
-
-    button.danger {
-      border-color: #b91c1c;
-      background: #7f1d1d;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-
-    .button-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-    }
-
-    .small {
-      font-size: 0.75rem;
-      opacity: 0.7;
-    }
-
-    .pill {
-      padding: 0.15rem 0.55rem;
-      border-radius: 999px;
-      border: 1px solid #374151;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .pill.connected {
-      border-color: #16a34a;
-      color: #22c55e;
-    }
-    .pill.disconnected {
-      border-color: #6b7280;
       color: #9ca3af;
-    }
-    .pill.connecting {
-      border-color: #f97316;
-      color: #fdba74;
+      margin-bottom: 12px;
     }
 
-    /* Video layout */
-    .video-grid {
+    .status span {
+      font-weight: 600;
+    }
+
+    .video-section,
+    .chat-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 12px;
+    }
+
+    .panel h2 {
+      font-size: 0.95rem;
+      margin-bottom: 8px;
+      color: #f9fafb;
+    }
+
+    .videos {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.5rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
     }
 
-    @media (max-width: 700px) {
-      .video-grid {
+    @media (max-width: 600px) {
+      .videos {
         grid-template-columns: 1fr;
       }
     }
 
     video {
       width: 100%;
-      border-radius: 0.75rem;
-      border: 1px solid #111827;
+      height: 200px;
       background: #020617;
-      aspect-ratio: 16 / 9;
+      border-radius: 8px;
+      border: 1px solid #111827;
       object-fit: cover;
     }
 
-    .video-label {
-      font-size: 0.75rem;
-      opacity: 0.8;
-      margin-bottom: 0.1rem;
-    }
-
-    /* Chat */
-    .chat-log {
-      flex: 1;
-      min-height: 140px;
-      max-height: 260px;
-      overflow-y: auto;
-      border-radius: 0.6rem;
-      border: 1px solid #111827;
-      background: #020617;
-      padding: 0.5rem;
+    label {
       font-size: 0.8rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+      display: block;
+      margin-bottom: 4px;
+      color: #9ca3af;
     }
 
-    .chat-msg {
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.75rem;
-      max-width: 80%;
-      word-wrap: break-word;
+    textarea {
+      width: 100%;
+      min-height: 60px;
+      background: #020617;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      padding: 6px 8px;
+      color: #e5e7eb;
+      resize: vertical;
+      font-size: 0.75rem;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
     }
 
-    .chat-msg.you {
-      align-self: flex-end;
+    textarea[readonly] {
+      opacity: 0.85;
+    }
+
+    button {
+      border-radius: 999px;
+      border: 1px solid #374151;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, transform 0.05s, border-color 0.15s;
+    }
+
+    button:hover {
+      background: #1f2937;
+      border-color: #4b5563;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    button.primary {
+      background: #2563eb;
+      border-color: #1d4ed8;
+    }
+
+    button.primary:hover {
       background: #1d4ed8;
     }
 
-    .chat-msg.them {
-      align-self: flex-start;
-      background: #111827;
+    button.danger {
+      background: #991b1b;
+      border-color: #b91c1c;
     }
 
-    .chat-msg.system {
-      align-self: center;
-      background: transparent;
-      opacity: 0.6;
-      font-style: italic;
+    button.small {
+      font-size: 0.7rem;
+      padding: 3px 8px;
     }
 
-    .chat-input-row {
+    .row {
       display: flex;
-      gap: 0.4rem;
-      margin-top: 0.4rem;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
     }
 
-    .chat-input-row input[type="text"] {
-      flex: 1;
-      padding: 0.45rem 0.6rem;
-      border-radius: 999px;
-      border: 1px solid #374151;
+    .field {
+      margin-bottom: 8px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: start;
+    }
+
+    .chat-messages {
       background: #020617;
-      color: inherit;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      padding: 8px;
+      height: 220px;
+      overflow-y: auto;
       font-size: 0.8rem;
     }
 
-    .chat-input-row input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.5);
+    .msg {
+      margin-bottom: 4px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      max-width: 80%;
+      word-wrap: break-word;
+      white-space: pre-wrap;
     }
 
-    footer {
-      padding: 0.4rem 1rem 0.7rem;
+    .msg.me {
+      background: #1d4ed8;
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .msg.them {
+      background: #111827;
+      margin-right: auto;
+    }
+
+    .chat-input-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .chat-input-row input {
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid #1f2937;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.8rem;
+    }
+
+    .log {
+      background: #020617;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      padding: 6px;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
       font-size: 0.7rem;
-      opacity: 0.7;
-      display: flex;
-      justify-content: space-between;
-      gap: 0.5rem;
-      border-top: 1px solid #111827;
+      height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
     }
 
-    #status-log {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #9ca3af;
     }
 
-    a {
-      color: #93c5fd;
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #6b7280;
+    }
+
+    .pill-dot.ok {
+      background: #22c55e;
+    }
+
+    .pill-dot.bad {
+      background: #ef4444;
     }
   </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>P2P Encrypted AV Chat</h1>
-    <small>Pure HTML/CSS/JS • No backend • WebRTC + Web Crypto</small>
+  <div class="app">
+    <!-- LEFT SIDE: video + chat -->
+    <section class="video-section">
+      <div>
+        <h1>P2P Encrypted A/V Chat</h1>
+        <div class="status">
+          Status: <span id="statusText">Initializing…</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Media</h2>
+        <div class="row">
+          <button id="startMediaBtn" class="primary" type="button">Enable Camera &amp; Mic</button>
+          <button id="stopMediaBtn" class="danger small" type="button">Stop Media</button>
+        </div>
+        <div class="videos">
+          <div>
+            <label>Local Video</label>
+            <video id="localVideo" autoplay playsinline muted></video>
+          </div>
+          <div>
+            <label>Remote Video</label>
+            <video id="remoteVideo" autoplay playsinline></video>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Chat</h2>
+        <div class="row">
+          <span class="pill">
+            <span id="dcDot" class="pill-dot"></span>
+            DataChannel
+          </span>
+          <span class="pill">
+            <span id="pcDot" class="pill-dot"></span>
+            PeerConnection
+          </span>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input id="chatInput" type="text" placeholder="Type a message…" />
+          <button id="sendBtn" type="button">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDE: signaling + logs -->
+    <section class="chat-section">
+      <div class="panel">
+        <h2>Signaling (copy / paste blobs)</h2>
+
+        <div class="field">
+          <label>Step 1 (Host): Click to create an offer</label>
+          <div class="row">
+            <button id="createOfferBtn" class="primary" type="button">1. Create Offer (host)</button>
+            <button id="resetBtn" class="small" type="button">Reset</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Local offer / invitation blob (host sends to peer)</label>
+          <div class="field-row">
+            <textarea id="localOffer" readonly></textarea>
+            <button id="copyLocalOfferBtn" class="small" type="button">Copy</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Remote offer blob (peer pastes here and accepts)</label>
+          <textarea id="remoteOffer"></textarea>
+          <div class="row" style="margin-top:4px;">
+            <button id="acceptOfferBtn" type="button">2. Accept Remote Offer &amp; Create Answer (peer)</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Local answer blob (peer sends back to host)</label>
+          <div class="field-row">
+            <textarea id="localAnswer" readonly></textarea>
+            <button id="copyLocalAnswerBtn" class="small" type="button">Copy</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Remote answer blob (host pastes here and applies)</label>
+          <textarea id="remoteAnswer"></textarea>
+          <div class="row" style="margin-top:4px;">
+            <button id="applyAnswerBtn" type="button">3. Apply Remote Answer (host)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Log</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </section>
   </div>
-  <div class="pill disconnected" id="connection-pill">Disconnected</div>
-</header>
 
-<main>
-  <!-- Left: Video & Chat -->
-  <section class="card">
-    <h2>
-      Session
-      <span class="small" id="session-status">Idle</span>
-    </h2>
+  <script>
+    // ------- DOM ELEMENTS -------
+    const statusText = document.getElementById("statusText");
+    const logEl = document.getElementById("log");
 
-    <div class="section-row">
-      <div class="button-row">
-        <button id="btn-create-offer" class="primary">Create Offer</button>
-        <button id="btn-accept-offer">Accept Offer</button>
-        <button id="btn-apply-answer">Apply Answer</button>
-        <button id="btn-hangup" class="danger">Hang Up</button>
-      </div>
-      <div class="small">
-        1) One side clicks <b>Create Offer</b> and shares the blob.<br />
-        2) Other side <b>Accepts Offer</b> and sends back an answer.<br />
-        3) First side <b>Applies Answer</b>. Then you’re connected.
-      </div>
-    </div>
+    const localVideo = document.getElementById("localVideo");
+    const remoteVideo = document.getElementById("remoteVideo");
 
-    <div class="section-row">
-      <h3>Signaling (copy & paste)</h3>
-      <label for="offer-out">Offer / Invite (share this from the creator)</label>
-      <textarea id="offer-out" placeholder="Generated offer blob appears here…" readonly></textarea>
+    const chatMessages = document.getElementById("chatMessages");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendBtn");
 
-      <label for="offer-in">Paste Remote Offer (for the joiner)</label>
-      <textarea id="offer-in" placeholder="Paste offer blob here to accept…"></textarea>
+    const createOfferBtn = document.getElementById("createOfferBtn");
+    const acceptOfferBtn = document.getElementById("acceptOfferBtn");
+    const applyAnswerBtn = document.getElementById("applyAnswerBtn");
+    const resetBtn = document.getElementById("resetBtn");
 
-      <label for="answer-out">Answer to Send Back (for the joiner)</label>
-      <textarea id="answer-out" placeholder="Generated answer blob appears here…" readonly></textarea>
+    const startMediaBtn = document.getElementById("startMediaBtn");
+    const stopMediaBtn = document.getElementById("stopMediaBtn");
 
-      <label for="answer-in">Remote Answer (for the creator to apply)</label>
-      <textarea id="answer-in" placeholder="Paste answer blob here to finalize connection…"></textarea>
-    </div>
+    const localOfferTextarea = document.getElementById("localOffer");
+    const remoteOfferTextarea = document.getElementById("remoteOffer");
+    const localAnswerTextarea = document.getElementById("localAnswer");
+    const remoteAnswerTextarea = document.getElementById("remoteAnswer");
 
-    <div class="section-row">
-      <h3>Video & Audio</h3>
-      <div class="button-row">
-        <button id="btn-start-media" class="primary">Start Camera &amp; Mic</button>
-        <button id="btn-stop-media">Stop Media</button>
-      </div>
-      <div class="small">
-        Both sides can click <b>Start Camera &amp; Mic</b> at any time. Media is transported via encrypted WebRTC.
-      </div>
-      <div class="video-grid">
-        <div>
-          <div class="video-label">You</div>
-          <video id="local-video" autoplay playsinline muted></video>
-        </div>
-        <div>
-          <div class="video-label">Remote</div>
-          <video id="remote-video" autoplay playsinline></video>
-        </div>
-      </div>
-    </div>
+    const copyLocalOfferBtn = document.getElementById("copyLocalOfferBtn");
+    const copyLocalAnswerBtn = document.getElementById("copyLocalAnswerBtn");
 
-    <div class="section-row">
-      <h3>Encrypted Text Chat</h3>
-      <div class="chat-log" id="chat-log">
-        <!-- messages -->
-      </div>
-      <div class="chat-input-row">
-        <input type="text" id="chat-input" placeholder="Type a message…" />
-        <button id="btn-send-chat">Send</button>
-      </div>
-      <div class="small">
-        Text messages are encrypted end-to-end with AES-GCM <b>before</b> going over the WebRTC DataChannel.
-      </div>
-    </div>
-  </section>
+    const dcDot = document.getElementById("dcDot");
+    const pcDot = document.getElementById("pcDot");
 
-  <!-- Right: Info / Debug -->
-  <section class="card">
-    <h2>Debug & Info</h2>
-    <div class="section-row">
-      <h3>Connection details</h3>
-      <div class="small">
-        • Transport: WebRTC (DTLS-SRTP)<br />
-        • Signaling: manual copy/paste (no server)<br />
-        • Text E2EE: AES-GCM 256 via Web Crypto<br />
-        • Ephemeral: no localStorage / no backend
-      </div>
-    </div>
-    <div class="section-row">
-      <h3>Status log</h3>
-      <textarea id="debug-log" style="min-height: 160px;" readonly></textarea>
-    </div>
-    <div class="section-row">
-      <h3>Tips</h3>
-      <ul class="small">
-        <li>Use a modern browser (Chrome, Firefox, Edge).</li>
-        <li>For real security, share the offer/answer via a secure channel (e.g. Signal).</li>
-        <li>Reloading the page destroys keys, state, and messages.</li>
-      </ul>
-    </div>
-  </section>
-</main>
+    // ------- STATE -------
+    let pc = null;
+    let dataChannel = null;
+    let localStream = null;
+    let sharedKey = null;
+    let exportedKeyJwk = null;
+    let currentRole = null; // "offerer" | "answerer" | null
 
-<footer>
-  <div id="status-log">Ready.</div>
-  <div>All in-browser • Nothing stored or uploaded.</div>
-</footer>
-
-<script type="module">
-  // --- DOM helpers ---
-  const $ = (id) => document.getElementById(id);
-
-  const offerOutEl   = $("offer-out");
-  const offerInEl    = $("offer-in");
-  const answerOutEl  = $("answer-out");
-  const answerInEl   = $("answer-in");
-
-  const btnCreateOffer   = $("btn-create-offer");
-  const btnAcceptOffer   = $("btn-accept-offer");
-  const btnApplyAnswer   = $("btn-apply-answer");
-  const btnHangup        = $("btn-hangup");
-  const btnStartMedia    = $("btn-start-media");
-  const btnStopMedia     = $("btn-stop-media");
-
-  const localVideo  = $("local-video");
-  const remoteVideo = $("remote-video");
-
-  const chatLog      = $("chat-log");
-  const chatInput    = $("chat-input");
-  const btnSendChat  = $("btn-send-chat");
-
-  const debugLog      = $("debug-log");
-  const statusLog     = $("status-log");
-  const sessionStatus = $("session-status");
-  const connectionPill = $("connection-pill");
-
-  // --- Global WebRTC / Crypto state ---
-  /** @type {RTCPeerConnection | null} */
-  let pc = null;
-  /** @type {RTCDataChannel | null} */
-  let dataChannel = null;
-  /** @type {CryptoKey | null} */
-  let aesKey = null;
-
-  /** @type {MediaStream | null} */
-  let localStream = null;
-  /** @type {MediaStream | null} */
-  let remoteStream = null;
-
-  // --- Logging ---
-  function logDebug(msg) {
-    const time = new Date().toISOString().split("T")[1].split(".")[0];
-    debugLog.value += "[" + time + "] " + msg + "\n";
-    debugLog.scrollTop = debugLog.scrollHeight;
-    statusLog.textContent = msg;
-    console.log(msg);
-  }
-
-  function setSessionStatus(text) {
-    sessionStatus.textContent = text;
-  }
-
-  function setConnectionState(state) {
-    connectionPill.textContent = state;
-    connectionPill.classList.remove("connected", "disconnected", "connecting");
-
-    if (state === "Connected") {
-      connectionPill.classList.add("connected");
-    } else if (state === "Connecting…") {
-      connectionPill.classList.add("connecting");
-    } else {
-      connectionPill.classList.add("disconnected");
+    // ------- LOGGING -------
+    function log(message) {
+      const now = new Date();
+      const time = now.toTimeString().split(" ")[0];
+      const line = `[${time}] ${message}`;
+      logEl.textContent += line + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(line);
     }
-  }
 
-  function appendChatMessage(author, text) {
-    const div = document.createElement("div");
-    div.classList.add("chat-msg");
-    if (author === "you") div.classList.add("you");
-    else if (author === "them") div.classList.add("them");
-    else div.classList.add("system");
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
 
-    div.textContent = text;
-    chatLog.appendChild(div);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
+    function setPcDot(state) {
+      pcDot.className = "pill-dot " + (state === "connected" ? "ok" : state === "failed" ? "bad" : "");
+    }
 
-  // --- Crypto helpers (AES-GCM) ---
-  async function generateAesKey() {
-    return await crypto.subtle.generateKey(
-      { name: "AES-GCM", length: 256 },
-      true,
-      ["encrypt", "decrypt"]
-    );
-  }
+    function setDcDot(state) {
+      dcDot.className = "pill-dot " + (state === "open" ? "ok" : state === "closed" || state === "error" ? "bad" : "");
+    }
 
-  async function exportAesKeyJwk(key) {
-    return await crypto.subtle.exportKey("jwk", key);
-  }
+    // ------- CRYPTO HELPERS (AES-GCM) -------
+    async function generateSharedKey() {
+      return await crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+      );
+    }
 
-  async function importAesKeyJwk(jwk) {
-    return await crypto.subtle.importKey(
-      "jwk",
-      jwk,
-      { name: "AES-GCM" },
-      true,
-      ["encrypt", "decrypt"]
-    );
-  }
+    async function encryptMessage(key, message) {
+      const enc = new TextEncoder();
+      const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        key,
+        enc.encode(message)
+      );
+      const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(ciphertext), iv.byteLength);
+      return combined.buffer;
+    }
 
-  async function encryptMessage(key, message) {
-    const enc = new TextEncoder();
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      key,
-      enc.encode(message)
-    );
-    const ctBytes = new Uint8Array(ciphertext);
-    const combined = new Uint8Array(iv.byteLength + ctBytes.byteLength);
-    combined.set(iv, 0);
-    combined.set(ctBytes, iv.byteLength);
-    return combined.buffer;
-  }
+    async function decryptMessage(key, data) {
+      const combined = new Uint8Array(data);
+      const iv = combined.slice(0, 12);
+      const ciphertext = combined.slice(12);
+      const plaintext = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        ciphertext
+      );
+      return new TextDecoder().decode(plaintext);
+    }
 
-  async function decryptMessage(key, buffer) {
-    const combined = new Uint8Array(buffer);
-    const iv = combined.slice(0, 12);
-    const ciphertext = combined.slice(12);
-    const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      key,
-      ciphertext
-    );
-    return new TextDecoder().decode(plaintext);
-  }
+    // ------- BLOB ENCODE/DECODE -------
+    function encodeBlob(obj) {
+      return btoa(JSON.stringify(obj));
+    }
 
-  // --- WebRTC helpers ---
-  function createPeerConnection() {
-    const config = {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" }
-      ]
-    };
+    function decodeBlob(b64) {
+      return JSON.parse(atob(b64.trim()));
+    }
 
-    const _pc = new RTCPeerConnection(config);
-    setConnectionState("Connecting…");
-    setSessionStatus("Creating peer connection");
-
-    _pc.addEventListener("connectionstatechange", () => {
-      logDebug("Peer connection state: " + _pc.connectionState);
-      if (_pc.connectionState === "connected") {
-        setConnectionState("Connected");
-        setSessionStatus("Connected");
-        appendChatMessage("system", "Peer connection established.");
-      } else if (
-        _pc.connectionState === "disconnected" ||
-        _pc.connectionState === "failed" ||
-        _pc.connectionState === "closed"
-      ) {
-        setConnectionState("Disconnected");
-        setSessionStatus("Disconnected");
-      } else if (_pc.connectionState === "connecting") {
-        setConnectionState("Connecting…");
+    // ------- PEER CONNECTION -------
+    function createPeerConnection(role) {
+      if (pc) {
+        pc.close();
+        pc = null;
       }
-    });
+      currentRole = role;
+      setPcDot(null);
 
-    _pc.addEventListener("iceconnectionstatechange", () => {
-      logDebug("ICE connection state: " + _pc.iceConnectionState);
-    });
+      pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      });
 
-    // Remote tracks
-    _pc.addEventListener("track", (event) => {
-      logDebug("Received remote track");
-      if (!remoteStream) {
-        remoteStream = new MediaStream();
-        remoteVideo.srcObject = remoteStream;
+      pc.onicecandidate = (event) => {
+        if (!event.candidate) {
+          log("ICE gathering complete.");
+          if (role === "offerer") {
+            updateLocalOfferBlob();
+          } else if (role === "answerer") {
+            updateLocalAnswerBlob();
+          }
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        log("Connection state: " + pc.connectionState);
+        setPcDot(pc.connectionState);
+        if (pc.connectionState === "connected") {
+          setStatus("Connected");
+        } else if (pc.connectionState === "failed") {
+          setStatus("Connection failed");
+        }
+      };
+
+      pc.ontrack = (event) => {
+        if (!remoteVideo.srcObject) {
+          remoteVideo.srcObject = event.streams[0];
+          log("Remote media stream attached.");
+        }
+      };
+
+      pc.ondatachannel = (event) => {
+        log("DataChannel received.");
+        dataChannel = event.channel;
+        setupDataChannel();
+      };
+
+      return pc;
+    }
+
+    async function attachLocalMedia() {
+      if (localStream) {
+        return;
       }
-      remoteStream.addTrack(event.track);
-    });
-
-    // When the remote side creates a DataChannel
-    _pc.addEventListener("datachannel", (event) => {
-      logDebug("Remote datachannel created: " + event.channel.label);
-      setupDataChannel(event.channel);
-    });
-
-    return _pc;
-  }
-
-  function setupDataChannel(channel) {
-    dataChannel = channel;
-    dataChannel.binaryType = "arraybuffer";
-
-    dataChannel.addEventListener("open", () => {
-      logDebug("DataChannel open");
-      appendChatMessage("system", "Secure chat channel is ready.");
-    });
-
-    dataChannel.addEventListener("close", () => {
-      logDebug("DataChannel closed");
-      appendChatMessage("system", "Chat channel closed.");
-    });
-
-    dataChannel.addEventListener("message", async (event) => {
       try {
-        if (!aesKey) {
-          appendChatMessage("system", "[Warning] Received message but no AES key present.");
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true
+        });
+        localVideo.srcObject = localStream;
+        if (pc) {
+          localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+        }
+        log("Local media stream acquired.");
+      } catch (err) {
+        log("Error getting user media: " + err.message);
+        alert("Failed to get camera/mic: " + err.message);
+      }
+    }
+
+    async function stopLocalMedia() {
+      if (localStream) {
+        localStream.getTracks().forEach((t) => t.stop());
+        localStream = null;
+        localVideo.srcObject = null;
+        log("Local media stopped.");
+      }
+    }
+
+    function setupDataChannel() {
+      if (!dataChannel) return;
+      setDcDot(dataChannel.readyState);
+
+      dataChannel.binaryType = "arraybuffer";
+
+      dataChannel.onopen = () => {
+        log("DataChannel open.");
+        setDcDot("open");
+      };
+
+      dataChannel.onclose = () => {
+        log("DataChannel closed.");
+        setDcDot("closed");
+      };
+
+      dataChannel.onerror = (e) => {
+        log("DataChannel error: " + e.message);
+        setDcDot("error");
+      };
+
+      dataChannel.onmessage = async (event) => {
+        try {
+          if (!sharedKey) {
+            log("Received message but no shared key; ignoring.");
+            return;
+          }
+          const text = await decryptMessage(sharedKey, event.data);
+          appendChatMessage(text, "them");
+        } catch (err) {
+          log("Error decrypting message: " + err.message);
+        }
+      };
+    }
+
+    function appendChatMessage(text, who) {
+      const div = document.createElement("div");
+      div.className = "msg " + who;
+      div.textContent = text;
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function resetAll() {
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
+      dataChannel = null;
+      sharedKey = null;
+      exportedKeyJwk = null;
+      currentRole = null;
+      setPcDot(null);
+      setDcDot(null);
+      await stopLocalMedia();
+
+      localOfferTextarea.value = "";
+      remoteOfferTextarea.value = "";
+      localAnswerTextarea.value = "";
+      remoteAnswerTextarea.value = "";
+      chatMessages.innerHTML = "";
+      log("Reset complete.");
+      setStatus("Ready. Create an offer to start.");
+    }
+
+    // ------- OFFER / ANSWER FLOW -------
+    async function startAsOfferer() {
+      try {
+        log("Starting offer creation…");
+        setStatus("Creating offer…");
+
+        await stopLocalMedia();
+        if (pc) {
+          pc.close();
+          pc = null;
+        }
+
+        sharedKey = await generateSharedKey();
+        exportedKeyJwk = await crypto.subtle.exportKey("jwk", sharedKey);
+        log("Shared AES key generated.");
+
+        createPeerConnection("offerer");
+        await attachLocalMedia();
+
+        if (localStream && pc.getSenders().length === 0) {
+          localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+        }
+
+        dataChannel = pc.createDataChannel("chat");
+        log("DataChannel created (host).");
+        setupDataChannel();
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        log("Local description set, waiting for ICE gathering complete…");
+      } catch (err) {
+        log("Error while creating offer: " + err.message);
+        alert("Error creating offer: " + err.message);
+      }
+    }
+
+    function updateLocalOfferBlob() {
+      if (!pc || !pc.localDescription || !exportedKeyJwk) {
+        log("Cannot create offer blob yet.");
+        return;
+      }
+      const blob = {
+        type: "offer",
+        sdp: {
+          type: pc.localDescription.type,
+          sdp: pc.localDescription.sdp
+        },
+        key: exportedKeyJwk
+      };
+      localOfferTextarea.value = encodeBlob(blob);
+      log("Offer blob ready. Copy and send it to your peer.");
+      setStatus("Offer ready. Send blob to peer.");
+    }
+
+    async function acceptRemoteOffer() {
+      try {
+        const b64 = remoteOfferTextarea.value.trim();
+        if (!b64) {
+          alert("Paste the remote offer blob first.");
           return;
         }
-        const buffer = event.data;
-        const text = await decryptMessage(aesKey, buffer);
-        appendChatMessage("them", text);
-      } catch (err) {
-        console.error(err);
-        appendChatMessage("system", "Failed to decrypt incoming message.");
-      }
-    });
-  }
+        log("Accepting remote offer…");
 
-  async function waitForIceGatheringComplete(pc) {
-    if (pc.iceGatheringState === "complete") return;
-    await new Promise((resolve) => {
-      function check() {
-        if (pc.iceGatheringState === "complete") {
-          pc.removeEventListener("icegatheringstatechange", check);
-          resolve();
+        const blob = decodeBlob(b64);
+        if (blob.type !== "offer") {
+          alert("This blob does not look like an offer.");
+          return;
         }
+
+        await stopLocalMedia();
+        if (pc) {
+          pc.close();
+          pc = null;
+        }
+
+        sharedKey = await crypto.subtle.importKey(
+          "jwk",
+          blob.key,
+          { name: "AES-GCM" },
+          false,
+          ["encrypt", "decrypt"]
+        );
+        exportedKeyJwk = null; // only host exports
+        log("Shared AES key imported from offer.");
+
+        createPeerConnection("answerer");
+        await attachLocalMedia();
+
+        if (localStream && pc.getSenders().length === 0) {
+          localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+        }
+
+        await pc.setRemoteDescription(blob.sdp);
+        log("Remote description set from offer.");
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        log("Local answer created, waiting for ICE gathering complete…");
+        setStatus("Creating answer…");
+      } catch (err) {
+        log("Error while accepting offer: " + err.message);
+        alert("Error accepting offer: " + err.message);
       }
-      pc.addEventListener("icegatheringstatechange", check);
-    });
-  }
+    }
 
-  async function createOfferFlow() {
-    try {
-      logDebug("Starting offer creation…");
-      teardownConnection();
-      pc = createPeerConnection();
-
-      // Create our own DataChannel and AES key
-      aesKey = await generateAesKey();
-      const dc = pc.createDataChannel("chat");
-      setupDataChannel(dc);
-
-      // If we already have local media, attach tracks
-      if (localStream) {
-        localStream.getTracks().forEach((track) => {
-          pc.addTrack(track, localStream);
-        });
+    function updateLocalAnswerBlob() {
+      if (!pc || !pc.localDescription) {
+        log("Cannot create answer blob yet.");
+        return;
       }
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      logDebug("Local description set, waiting for ICE gathering complete…");
-
-      await waitForIceGatheringComplete(pc);
-
-      const exportedKey = await exportAesKeyJwk(aesKey);
       const blob = {
-        sdp: pc.localDescription,
-        key: exportedKey
+        type: "answer",
+        sdp: {
+          type: pc.localDescription.type,
+          sdp: pc.localDescription.sdp
+        }
       };
-
-      const text = btoa(JSON.stringify(blob));
-      offerOutEl.value = text;
-      setSessionStatus("Offer created. Share the Offer/Invite blob.");
-      appendChatMessage("system", "Offer created. Send the Offer/Invite blob to the other side.");
-    } catch (err) {
-      console.error(err);
-      logDebug("Error creating offer: " + err);
+      localAnswerTextarea.value = encodeBlob(blob);
+      log("Answer blob ready. Copy and send it back to the host.");
+      setStatus("Answer ready. Send blob to host.");
     }
-  }
 
-  async function acceptOfferFlow() {
-    try {
-      const base64 = (offerInEl.value || "").trim();
-      if (!base64) {
-        alert("Paste a remote offer blob first.");
+    async function applyRemoteAnswer() {
+      try {
+        const b64 = remoteAnswerTextarea.value.trim();
+        if (!b64) {
+          alert("Paste the remote answer blob first.");
+          return;
+        }
+        log("Applying remote answer…");
+
+        const blob = decodeBlob(b64);
+        if (blob.type !== "answer") {
+          alert("This blob does not look like an answer.");
+          return;
+        }
+
+        if (!pc) {
+          alert("PeerConnection not created. Create an offer first.");
+          return;
+        }
+
+        await pc.setRemoteDescription(blob.sdp);
+        log("Remote description set from answer.");
+        setStatus("Waiting for connection…");
+      } catch (err) {
+        log("Error while applying answer: " + err.message);
+        alert("Error applying answer: " + err.message);
+      }
+    }
+
+    // ------- CHAT SEND -------
+    async function sendChatMessage() {
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      if (!dataChannel || dataChannel.readyState !== "open") {
+        log("DataChannel not open; cannot send.");
+        alert("DataChannel is not open yet.");
         return;
       }
 
-      logDebug("Accepting remote offer…");
-      teardownConnection();
-      pc = createPeerConnection();
-
-      const decoded = JSON.parse(atob(base64));
-
-      // Import AES key from offer
-      aesKey = await importAesKeyJwk(decoded.key);
-
-      await pc.setRemoteDescription(decoded.sdp);
-      logDebug("Remote description set from offer.");
-
-      // If we already have local media, attach tracks
-      if (localStream) {
-        localStream.getTracks().forEach((track) => {
-          pc.addTrack(track, localStream);
-        });
-      }
-
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await waitForIceGatheringComplete(pc);
-
-      const answerBlob = {
-        sdp: pc.localDescription
-      };
-      const answerText = btoa(JSON.stringify(answerBlob));
-      answerOutEl.value = answerText;
-
-      setSessionStatus("Answer created. Send it back to the offer creator.");
-      appendChatMessage("system", "Answer created. Send the Answer to Send Back blob to the other side.");
-    } catch (err) {
-      console.error(err);
-      logDebug("Error accepting offer: " + err);
-    }
-  }
-
-  async function applyAnswerFlow() {
-    try {
-      const base64 = (answerInEl.value || "").trim();
-      if (!base64) {
-        alert("Paste the remote answer blob first.");
+      if (!sharedKey) {
+        log("No shared key; cannot encrypt.");
+        alert("Shared key not set; check signaling steps.");
         return;
       }
 
-      if (!pc) {
-        alert("No existing peer connection. You should create an offer first.");
+      try {
+        const encrypted = await encryptMessage(sharedKey, text);
+        dataChannel.send(encrypted);
+        appendChatMessage(text, "me");
+        chatInput.value = "";
+      } catch (err) {
+        log("Error sending message: " + err.message);
+      }
+    }
+
+    // ------- CLIPBOARD HELPERS -------
+    async function copyToClipboard(text, successMessage) {
+      if (!text.trim()) {
+        alert("Nothing to copy.");
         return;
       }
-
-      const decoded = JSON.parse(atob(base64));
-      await pc.setRemoteDescription(decoded.sdp);
-      logDebug("Remote description set from answer.");
-      setSessionStatus("Waiting for connection to complete…");
-    } catch (err) {
-      console.error(err);
-      logDebug("Error applying answer: " + err);
+      try {
+        await navigator.clipboard.writeText(text);
+        log(successMessage);
+      } catch (err) {
+        log("Clipboard error: " + err.message);
+        alert("Clipboard error: " + err.message);
+      }
     }
-  }
 
-  function teardownConnection() {
-    if (dataChannel) {
-      try { dataChannel.close(); } catch (_) {}
-      dataChannel = null;
-    }
-    if (pc) {
-      try { pc.close(); } catch (_) {}
-      pc = null;
-    }
-    setConnectionState("Disconnected");
-  }
+    // ------- INIT & EVENTS -------
+    function init() {
+      setStatus("Ready. Create an offer to start.");
+      log("Ready. Create an offer to start.");
 
-  async function startMedia() {
-    try {
-      logDebug("Requesting camera and microphone…");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
+      createOfferBtn.addEventListener("click", startAsOfferer);
+      acceptOfferBtn.addEventListener("click", acceptRemoteOffer);
+      applyAnswerBtn.addEventListener("click", applyRemoteAnswer);
+      resetBtn.addEventListener("click", resetAll);
+
+      startMediaBtn.addEventListener("click", attachLocalMedia);
+      stopMediaBtn.addEventListener("click", stopLocalMedia);
+
+      sendBtn.addEventListener("click", sendChatMessage);
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendChatMessage();
+        }
       });
-      localStream = stream;
-      localVideo.srcObject = stream;
 
-      if (pc) {
-        stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-      }
-      logDebug("Local media started.");
-    } catch (err) {
-      console.error(err);
-      logDebug("Error accessing media: " + err);
-      alert("Failed to access camera/microphone. Check permissions.");
+      copyLocalOfferBtn.addEventListener("click", () =>
+        copyToClipboard(localOfferTextarea.value, "Local offer blob copied to clipboard.")
+      );
+      copyLocalAnswerBtn.addEventListener("click", () =>
+        copyToClipboard(localAnswerTextarea.value, "Local answer blob copied to clipboard.")
+      );
+
+      window.addEventListener("beforeunload", () => {
+        if (pc) pc.close();
+        if (localStream) {
+          localStream.getTracks().forEach((t) => t.stop());
+        }
+      });
     }
-  }
 
-  function stopMedia() {
-    if (localStream) {
-      localStream.getTracks().forEach((t) => t.stop());
-      localStream = null;
-      localVideo.srcObject = null;
-    }
-    if (remoteStream) {
-      remoteStream.getTracks().forEach((t) => t.stop());
-      remoteStream = null;
-      remoteVideo.srcObject = null;
-    }
-    logDebug("Media stopped.");
-  }
-
-  function hangup() {
-    stopMedia();
-    teardownConnection();
-    appendChatMessage("system", "Call ended. You can start a new one anytime.");
-    setSessionStatus("Idle");
-  }
-
-  async function sendChat() {
-    const text = (chatInput.value || "").trim();
-    if (!text) return;
-    chatInput.value = "";
-    if (!dataChannel || dataChannel.readyState !== "open") {
-      appendChatMessage("system", "Chat channel not ready.");
-      return;
-    }
-    if (!aesKey) {
-      appendChatMessage("system", "No AES key present; cannot encrypt.");
-      return;
-    }
-    try {
-      const encrypted = await encryptMessage(aesKey, text);
-      dataChannel.send(encrypted);
-      appendChatMessage("you", text);
-    } catch (err) {
-      console.error(err);
-      appendChatMessage("system", "Failed to encrypt/send message.");
-    }
-  }
-
-  // --- Wire up UI ---
-  btnCreateOffer.addEventListener("click", createOfferFlow);
-  btnAcceptOffer.addEventListener("click", acceptOfferFlow);
-  btnApplyAnswer.addEventListener("click", applyAnswerFlow);
-  btnHangup.addEventListener("click", hangup);
-
-  btnStartMedia.addEventListener("click", startMedia);
-  btnStopMedia.addEventListener("click", stopMedia);
-
-  btnSendChat.addEventListener("click", sendChat);
-  chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendChat();
-    }
-  });
-
-  window.addEventListener("beforeunload", () => {
-    // Best-effort cleanup
-    try { stopMedia(); } catch (_) {}
-    try { teardownConnection(); } catch (_) {}
-  });
-
-  // Initial state
-  setConnectionState("Disconnected");
-  setSessionStatus("Idle");
-  logDebug("Ready. Create an offer to start.");
-  appendChatMessage("system", "Welcome. Start by clicking 'Create Offer' or paste a remote offer to join.");
-
-</script>
+    init();
+  </script>
 </body>
 </html>
