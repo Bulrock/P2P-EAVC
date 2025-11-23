@@ -200,8 +200,8 @@
     }
 
     button.small {
-      padding: 0.25rem 0.55rem;
-      font-size: 0.7rem;
+      padding: 0.35rem 0.95rem;
+      font-size: 0.9rem;
     }
 
     button:not(:disabled):hover {
@@ -565,17 +565,18 @@
       gap: 0.4rem;
       flex: 1 1 auto;
       min-width: 0;
+      width: 100%;
     }
 
     .chat-input {
-      flex: 1;
-      border-radius: 999px;
+      flex: 1 0 auto;
+      border-radius: 0.6rem;
       border: 1px solid #374151;
       background: #020617;
-      padding: 0.4rem 0.9rem 0.4rem 0.6rem;
+      padding: 0.55rem 0.9rem;
       color: white;
-      font-size: 0.8rem;
-      min-width: 0;
+      font-size: 0.9rem;
+      height: 40px;
     }
 
     .chat-input:disabled {
@@ -717,30 +718,31 @@
       <div class="chat-messages" id="chatMessages"></div>
 
       <div class="chat-input-row">
-        <div class="chat-text-wrap">
-          <select id="emojiSelect" class="chat-input" style="flex:0 0 120px; max-width:140px;">
-              <option value="">🙂 Emojis</option>
-              <option>😀</option><option>😁</option><option>😂</option><option>🤣</option><option>😊</option>
-              <option>😍</option><option>🤩</option><option>😘</option><option>😎</option><option>🤔</option>
-              <option>😇</option><option>😅</option><option>🙃</option><option>😴</option><option>🤯</option>
-              <option>😱</option><option>🤗</option><option>👍</option><option>🙏</option><option>🎉</option>
-              <option>🔥</option><option>🌟</option><option>💡</option><option>❤️</option><option>🧠</option>
-              <option>💩</option>
-            </select>
-            <input id="chatInput" class="chat-input" placeholder="Type a message…" />
-          </div>
-          <div class="chat-text-wrap" style="flex:0 0 auto; gap:0.3rem;">
-            <input id="photoInput" type="file" accept="image/*" style="display:none;" />
-            <button id="btnPhoto" class="secondary small" type="button">📷</button>
-            <button id="btnRecord" class="secondary small" type="button">🎤</button>
-            <button id="btnSend">Send</button>
-          </div>
+        <div class="chat-text-wrap" style="width:100%; gap:0.3rem;">
+          <input id="chatInput" class="chat-input" placeholder="Type a message…" style="flex:1 1 auto; width:100%;" />
         </div>
 
-        <div class="status-line">
-          💬 <span id="chatStatus">DataChannel: not ready</span>
+        <div class="chat-text-wrap" style="width:100%; gap:0.3rem; margin-top:0.4rem; flex-wrap:nowrap;">
+          <select id="emojiSelect" class="chat-input" style="flex:1 0 25%; max-width:25%; min-width:90px; height:40px; padding: 0 0.2rem;">
+            <option value="">🙂 Emojis</option>
+            <option>😀</option><option>😁</option><option>😂</option><option>🤣</option><option>😊</option>
+            <option>😍</option><option>🤩</option><option>😘</option><option>😎</option><option>🤔</option>
+            <option>😇</option><option>😅</option><option>🙃</option><option>😴</option><option>🤯</option>
+            <option>😱</option><option>🤗</option><option>👍</option><option>🙏</option><option>🎉</option>
+            <option>🔥</option><option>🌟</option><option>💡</option><option>❤️</option><option>🧠</option>
+            <option>💩</option>
+          </select>
+          <input id="photoInput" type="file" accept="image/*, video/*, audio/*, application/pdf" style="display:none;" />
+          <button id="btnPhoto" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.1rem;">📷</button>
+          <button id="btnRecord" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.1rem;">🎤</button>
+          <button id="btnSend" style="height:40px; flex:1 1 25%; justify-content:center; font-size: 0.9rem;">Send</button>
         </div>
       </div>
+
+      <div class="status-line">
+        💬 <span id="chatStatus">DataChannel: not ready</span>
+      </div>
+    </div>
   </section>
 
 </main>
