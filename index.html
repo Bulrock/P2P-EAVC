@@ -424,6 +424,71 @@
       margin-top: 0.15rem;
     }
 
+    .reactions {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-top: 0.25rem;
+      flex-wrap: wrap;
+      position: relative;
+      min-height: 26px;
+      padding: 2px 0;
+    }
+
+    .reaction-pill {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 999px;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+
+    .reaction-pill.host-reacted {
+      background: #f9fafb;
+      color: #0f172a;
+      border-color: #e5e7eb;
+    }
+
+    .reaction-pill.guest-reacted {
+      background: #0ea5e9;
+      color: #0b1120;
+      border-color: #38bdf8;
+    }
+
+    .react-menu {
+      position: absolute;
+      display: none;
+      bottom: calc(100% + 6px);
+      left: 0;
+      background: #0b1120;
+      border: 1px solid #374151;
+      border-radius: 0.5rem;
+      padding: 0.3rem;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+      gap: 0.25rem;
+      z-index: 10;
+      min-width: 140px;
+    }
+
+    .reactions:hover .react-menu,
+    .reactions.open .react-menu {
+      display: flex;
+    }
+
+    .bubble:hover .react-menu {
+      display: flex;
+    }
+
+    .react-option {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
     .download-link {
       display: inline-block;
       margin-top: 0.25rem;
@@ -664,6 +729,8 @@ let micRequesting = false;
 let micRequested = false;
 let typingTimeout = null;
 let lastTypingState = false;
+const messageReactions = new Map(); // id -> Map(emoji -> { host:bool, guest:bool })
+const REACTION_EMOJIS = ["👍", "😂", "😍", "🔥", "👏"];
 
 // for correct connection status
 let iceState = "new";
@@ -855,6 +922,53 @@ function getPeerLabel() {
   if (isHost === true) return "Guest";
   if (isHost === false) return "Host";
   return "Peer";
+}
+
+function getActorRole() {
+  if (isHost === true) return "host";
+  if (isHost === false) return "guest";
+  return "peer";
+}
+
+function attachReactionMenu(wrapper) {
+  const menu = wrapper.querySelector(".react-menu");
+  if (!menu) return;
+  let hideTimer = null;
+
+  const open = () => {
+    hideTimer && clearTimeout(hideTimer);
+    wrapper.classList.add("open");
+    // Adjust horizontal position based on actor so host menus rise left to avoid scrollbar
+    if (getActorRole() === "host") {
+      menu.style.right = "0";
+      menu.style.left = "auto";
+    } else {
+      menu.style.left = "0";
+      menu.style.right = "auto";
+    }
+  };
+
+  const close = () => {
+    hideTimer && clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => wrapper.classList.remove("open"), 150);
+  };
+
+  wrapper.addEventListener("mouseenter", open);
+  wrapper.addEventListener("mouseleave", close);
+  menu.addEventListener("mouseenter", open);
+  menu.addEventListener("mouseleave", close);
+  wrapper.addEventListener("click", e => {
+    const t = e.target;
+    if (t instanceof HTMLElement && t.classList.contains("react-option")) return;
+    wrapper.classList.toggle("open");
+  });
+  menu.addEventListener("click", e => {
+    e.stopPropagation();
+  });
+}
+
+function closeReactionMenus() {
+  document.querySelectorAll(".reactions.open").forEach(el => el.classList.remove("open"));
 }
 
 /* ============================================
@@ -1055,8 +1169,13 @@ function setupDataChannelHandlers() {
    Chat UI
 ============================================ */
 function appendChatMessage(from, payload) {
+  if (!payload.id) {
+    payload.id = crypto.randomUUID();
+  }
+
   const msg = document.createElement("div");
   msg.className = "msg " + (from === "me" ? "me" : "peer");
+  msg.dataset.mid = payload.id;
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
@@ -1099,7 +1218,27 @@ function appendChatMessage(from, payload) {
   time.className = "timestamp";
   time.textContent = payload.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   bubble.appendChild(time);
+
+  const reactionsRow = document.createElement("div");
+  reactionsRow.className = "reactions";
+  const menu = document.createElement("div");
+  menu.className = "react-menu";
+  REACTION_EMOJIS.forEach(emoji => {
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "react-option";
+    opt.textContent = emoji;
+    opt.dataset.emoji = emoji;
+    menu.appendChild(opt);
+  });
+  const reactionPills = document.createElement("div");
+  reactionPills.className = "reaction-pills";
+  reactionsRow.appendChild(reactionPills);
+  reactionsRow.appendChild(menu);
+  bubble.appendChild(reactionsRow);
   msg.appendChild(bubble);
+
+  attachReactionMenu(reactionsRow);
 
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -1107,6 +1246,12 @@ function appendChatMessage(from, payload) {
   if (from === "peer") {
     setTypingIndicator(false);
   }
+
+  if (!messageReactions.has(payload.id)) {
+    messageReactions.set(payload.id, new Map());
+  }
+
+  renderReactions(payload.id);
 }
 
 async function sendPayload(payload) {
@@ -1119,7 +1264,11 @@ async function sendPayload(payload) {
     return false;
   }
 
-  if (!payload.time) {
+  if (!payload.id) {
+    payload.id = crypto.randomUUID();
+  }
+
+  if (!payload.time && payload.type !== "reaction" && payload.type !== "typing") {
     payload.time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
@@ -1181,6 +1330,11 @@ function handleIncomingPayload(serialized) {
     return;
   }
 
+  if (payload.type === "reaction" && payload.target && payload.emoji) {
+    applyReaction(payload.target, payload.emoji, payload.from, payload.action);
+    return;
+  }
+
   appendChatMessage("peer", payload);
   setTypingIndicator(false);
 }
@@ -1215,6 +1369,59 @@ function sendTypingStatus(active) {
 
   if (active) {
     typingTimeout = setTimeout(() => sendTypingStatus(false), 2000);
+  }
+}
+
+function applyReaction(targetId, emoji, actor, action = "toggle") {
+  if (!targetId || !emoji || !actor) return;
+  const map = messageReactions.get(targetId) || new Map();
+  const state = map.get(emoji) || { host: false, guest: false };
+  if (action === "toggle") {
+    state[actor] = !state[actor];
+  } else if (action === "add") {
+    state[actor] = true;
+  } else if (action === "remove") {
+    state[actor] = false;
+  }
+
+  if (!state.host && !state.guest) {
+    map.delete(emoji);
+  } else {
+    map.set(emoji, state);
+  }
+
+  if (map.size === 0) {
+    messageReactions.delete(targetId);
+  } else {
+    messageReactions.set(targetId, map);
+  }
+
+  renderReactions(targetId);
+}
+
+function renderReactions(targetId) {
+  const msg = chatMessages.querySelector(`[data-mid="${targetId}"]`);
+  if (!msg) return;
+  const pillsContainer = msg.querySelector(".reaction-pills");
+  if (!pillsContainer) return;
+  pillsContainer.innerHTML = "";
+
+  const map = messageReactions.get(targetId);
+  if (!map) return;
+
+  pillsContainer.style.display = map.size ? "flex" : "none";
+
+  for (const [emo, state] of map.entries()) {
+    const count = (state.host ? 1 : 0) + (state.guest ? 1 : 0);
+    if (count === 0) continue;
+    const pill = document.createElement("span");
+    pill.className = "reaction-pill";
+    if (state.host) pill.classList.add("host-reacted");
+    if (state.guest) pill.classList.add("guest-reacted");
+    pill.dataset.emoji = emo;
+    pill.dataset.target = targetId;
+    pill.textContent = `${emo} ${count}`;
+    pillsContainer.appendChild(pill);
   }
 }
 
@@ -1463,6 +1670,45 @@ btnRecord.addEventListener("click", async () => {
   } catch (e) {
     log("Mic access error: " + e);
     btnRecord.textContent = "🎤";
+  }
+});
+
+function handleReactionSelection(target) {
+  const emoji = target.dataset.emoji;
+  const msg = target.closest(".msg");
+  const id = msg?.dataset.mid;
+  if (!emoji || !id) return;
+  const actor = getActorRole();
+  const payload = { type: "reaction", target: id, emoji, from: actor, action: "toggle" };
+  sendPayload(payload).then(sent => {
+    if (sent) applyReaction(id, emoji, actor, "toggle");
+  });
+  closeReactionMenus();
+}
+
+chatMessages.addEventListener("pointerdown", e => {
+  const target = e.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (target.classList.contains("reaction-pill")) {
+    const actor = getActorRole();
+    const emoji = target.dataset.emoji;
+    const id = target.dataset.target;
+    if (!emoji || !id) return;
+    const map = messageReactions.get(id);
+    const state = map?.get(emoji);
+    const reacted = actor === "host" ? state?.host : state?.guest;
+    if (reacted) {
+      const payload = { type: "reaction", target: id, emoji, from: actor, action: "remove" };
+      sendPayload(payload).then(sent => {
+        if (sent) applyReaction(id, emoji, actor, "remove");
+      });
+    }
+    return;
+  }
+  if (target.classList.contains("react-option")) {
+    e.preventDefault();
+    handleReactionSelection(target);
+    closeReactionMenus();
   }
 });
 
