@@ -407,6 +407,7 @@
       display: block;
       opacity: 0.7;
       font-size: 0.6rem;
+      margin-bottom: 0.1rem;
     }
 
     .bubble img {
@@ -414,6 +415,13 @@
       border-radius: 0.5rem;
       display: block;
       margin-top: 0.25rem;
+    }
+
+    .timestamp {
+      text-align: right;
+      font-size: 0.6rem;
+      opacity: 0.7;
+      margin-top: 0.15rem;
     }
 
     .download-link {
@@ -590,11 +598,11 @@
     </h2>
 
       <div class="chat-box">
-        <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-messages" id="chatMessages"></div>
 
-        <div class="chat-input-row">
-          <div class="chat-text-wrap">
-            <select id="emojiSelect" class="chat-input" style="flex:0 0 120px; max-width:140px;">
+      <div class="chat-input-row">
+        <div class="chat-text-wrap">
+          <select id="emojiSelect" class="chat-input" style="flex:0 0 120px; max-width:140px;">
               <option value="">🙂 Emojis</option>
               <option>😀</option><option>😁</option><option>😂</option><option>🤣</option><option>😊</option>
               <option>😍</option><option>🤩</option><option>😘</option><option>😎</option><option>🤔</option>
@@ -614,8 +622,8 @@
 
         <div class="status-line">
           💬 <span id="chatStatus">DataChannel: not ready</span>
+        </div>
       </div>
-    </div>
   </section>
 
 </main>
@@ -654,6 +662,8 @@ let audioChunks = [];
 let micAllowed = false;
 let micRequesting = false;
 let micRequested = false;
+let typingTimeout = null;
+let lastTypingState = false;
 
 // for correct connection status
 let iceState = "new";
@@ -817,6 +827,36 @@ function setChatStatus(text) {
   updateSendControls();
 }
 
+function setTypingIndicator(active) {
+  const peerLabel = getPeerLabel();
+  let bubble = document.getElementById("typingBubble");
+  if (active) {
+    if (!bubble) {
+      bubble = document.createElement("div");
+      bubble.id = "typingBubble";
+      bubble.className = "msg peer";
+      const inner = document.createElement("div");
+      inner.className = "bubble";
+      inner.textContent = `${peerLabel} is typing…`;
+      bubble.appendChild(inner);
+      chatMessages.appendChild(bubble);
+    } else {
+      const inner = bubble.querySelector(".bubble");
+      if (inner) inner.textContent = `${peerLabel} is typing…`;
+    }
+    bubble.style.display = "flex";
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  } else if (bubble) {
+    bubble.remove();
+  }
+}
+
+function getPeerLabel() {
+  if (isHost === true) return "Guest";
+  if (isHost === false) return "Host";
+  return "Peer";
+}
+
 /* ============================================
    Host/Guest UI Toggle
 ============================================ */
@@ -870,6 +910,9 @@ function resetState() {
   isHost = null;
   mediaRecorder = null;
   audioChunks = [];
+  lastTypingState = false;
+  typingTimeout && clearTimeout(typingTimeout);
+  typingTimeout = null;
 
   iceState = "new";
   dcOpen = false;
@@ -1052,10 +1095,18 @@ function appendChatMessage(from, payload) {
 
   bubble.appendChild(small);
   bubble.appendChild(body);
+  const time = document.createElement("div");
+  time.className = "timestamp";
+  time.textContent = payload.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  bubble.appendChild(time);
   msg.appendChild(bubble);
 
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  if (from === "peer") {
+    setTypingIndicator(false);
+  }
 }
 
 async function sendPayload(payload) {
@@ -1066,6 +1117,10 @@ async function sendPayload(payload) {
   if (!sharedKey) {
     log("Missing key.");
     return false;
+  }
+
+  if (!payload.time) {
+    payload.time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
   const serialized = JSON.stringify(payload);
@@ -1121,7 +1176,13 @@ function handleIncomingPayload(serialized) {
     return;
   }
 
+  if (payload.type === "typing") {
+    setTypingIndicator(!!payload.active);
+    return;
+  }
+
   appendChatMessage("peer", payload);
+  setTypingIndicator(false);
 }
 
 async function requestMicPermission() {
@@ -1134,6 +1195,26 @@ async function requestMicPermission() {
     micAllowed = false;
     log("Mic permission denied or unavailable.");
     return false;
+  }
+}
+
+function sendTypingStatus(active) {
+  if (!dataChannel || dataChannel.readyState !== "open") return;
+  if (lastTypingState === active) {
+    if (active && typingTimeout) {
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => sendTypingStatus(false), 2000);
+    }
+    return;
+  }
+
+  lastTypingState = active;
+  typingTimeout && clearTimeout(typingTimeout);
+
+  sendPayload({ type: "typing", active });
+
+  if (active) {
+    typingTimeout = setTimeout(() => sendTypingStatus(false), 2000);
   }
 }
 
@@ -1274,6 +1355,7 @@ btnSend.addEventListener("click", async () => {
     appendChatMessage("me", payload);
     chatInput.value = "";
   }
+  sendTypingStatus(false);
 });
 
 chatInput.addEventListener("keydown", e => {
@@ -1281,13 +1363,29 @@ chatInput.addEventListener("keydown", e => {
     e.preventDefault();
     document.getElementById("btnSend").click();
   }
+  sendTypingStatus(true);
+});
+chatInput.addEventListener("input", () => {
+  sendTypingStatus(true);
+});
+chatInput.addEventListener("blur", () => {
+  sendTypingStatus(false);
 });
 
 emojiSelect.addEventListener("change", () => {
   const emoji = emojiSelect.value;
   if (!emoji) return;
-  chatInput.value += emoji;
-  chatInput.focus();
+  const ready = dataChannel && dataChannel.readyState === "open" && sharedKey;
+  if (ready && !chatInput.value.trim()) {
+    const payload = { type: "text", text: emoji };
+    sendPayload(payload).then(sent => {
+      if (sent) appendChatMessage("me", payload);
+    });
+  } else {
+    chatInput.value += emoji;
+    chatInput.focus();
+    sendTypingStatus(true);
+  }
   emojiSelect.selectedIndex = 0;
 });
 
