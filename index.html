@@ -217,8 +217,8 @@
     }
 
     #offerIn {
-      margin-bottom: 0.25rem;
       width: calc(100% - 1rem);
+      margin-bottom: 0.25rem;
     }
 
     .label {
@@ -787,12 +787,12 @@ document.getElementById("btnCreateOffer").addEventListener("click", async () => 
 ============================================ */
 document.getElementById("btnAcceptOffer").addEventListener("click", async () => {
   try {
+    const b64 = offerIn.value.trim();
+    if (!b64) return log("No offer provided.");
+
     resetState();
     updateModeUI();
     isHost = false;
-
-    const b64 = offerIn.value.trim();
-    if (!b64) return log("No offer provided.");
 
     log("Accepting offer...");
     const blob = JSON.parse(atob(b64));
