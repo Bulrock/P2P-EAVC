@@ -136,6 +136,12 @@
       }
     }
 
+    /* Force column layout when collapsed regardless of breakpoint */
+    .main-collapsed {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
     .card {
       background: #020617;
       border-radius: 1rem;
@@ -852,6 +858,7 @@ const flowTitle = document.getElementById("flowTitle");
 const flowPill = document.getElementById("flowPill");
 const logHeader = document.getElementById("logHeader");
 const logBody   = document.getElementById("logBody");
+const mainEl = document.querySelector("main");
 
 const btnDisconnect = document.getElementById("btnDisconnect");
 
@@ -877,6 +884,11 @@ function setAccordionCollapsed(collapsed) {
   connCollapsed = collapsed;
   connBody.style.display = collapsed ? "none" : "";
   connChevron.textContent = collapsed ? "▸" : "▾";
+  if (collapsed) {
+    mainEl.classList.add("main-collapsed");
+  } else {
+    mainEl.classList.remove("main-collapsed");
+  }
 }
 
 connHeader.addEventListener("click", () => {
