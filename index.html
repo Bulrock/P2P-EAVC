@@ -459,6 +459,12 @@
       border-color: #38bdf8;
     }
 
+    .uploading {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin-top: 0.2rem;
+    }
+
     .edit-btn {
       background: transparent;
       border: 1px dashed #374151;
@@ -746,12 +752,12 @@
             <option>🔥</option><option>🌟</option><option>💡</option><option>❤️</option><option>🧠</option>
             <option>💩</option>
           </select>
-          <input id="photoInput" type="file" accept="image/*, video/*, audio/*, application/pdf" style="display:none;" />
-          <button id="btnPhoto" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.1rem;">📷</button>
-          <button id="btnRecord" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.1rem;">🎤</button>
-          <button id="btnSend" style="height:40px; flex:1 1 25%; justify-content:center; font-size: 0.9rem;">Send</button>
+          <input id="photoInput" type="file" accept="*/*" style="display:none;" />
+          <button id="btnPhoto" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.3rem;">📎</button>
+          <button id="btnRecord" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.3rem;">🎤</button>
+          <button id="btnSend" style="height:40px; flex:1 1 25%; justify-content:center; font-size: 0.9rem; color: white;">Send</button>
         </div>
-      </div>
+      </div
 
       <div class="status-line">
         💬 <span id="chatStatus">DataChannel: not ready</span>
@@ -789,7 +795,7 @@ let localStream = null;
 let remoteStream = null;
 let isHost = null;
 const pendingChunks = new Map();
-const CHUNK_SIZE = 16000;
+const CHUNK_SIZE = 8000;
 let mediaRecorder = null;
 let audioChunks = [];
 let micAllowed = false;
@@ -1239,6 +1245,10 @@ function appendChatMessage(from, payload) {
     payload.id = crypto.randomUUID();
   }
 
+  // Remove any existing bubble with same id (e.g., uploading placeholder)
+  const existing = chatMessages.querySelector(`[data-mid="${payload.id}"]`);
+  if (existing) existing.remove();
+
   const msg = document.createElement("div");
   msg.className = "msg " + (from === "me" ? "me" : "peer");
   msg.dataset.mid = payload.id;
@@ -1269,6 +1279,13 @@ function appendChatMessage(from, payload) {
     audio.controls = true;
     audio.src = payload.audioData;
     body.appendChild(audio);
+  } else if (payload.type === "file" && payload.fileData) {
+    body.textContent = payload.name || "File";
+    const meta = document.createElement("div");
+    meta.style.fontSize = "0.75rem";
+    meta.style.opacity = "0.8";
+    meta.textContent = payload.mime || "Unknown file";
+    body.appendChild(meta);
   } else {
     body.textContent = payload.text || "";
     if (from === "me" && payload.type === "text") {
@@ -1287,6 +1304,17 @@ function appendChatMessage(from, payload) {
     time.textContent = time.dataset.originalTime;
   }
   bubble.appendChild(time);
+
+  if (payload.uploading) {
+    const uploading = document.createElement("div");
+    uploading.className = "uploading";
+    uploading.textContent = "Uploading…";
+    uploading.dataset.uploadingFor = payload.id;
+    bubble.appendChild(uploading);
+  } else {
+    const existing = document.querySelector(`.uploading[data-uploading-for="${payload.id}"]`);
+    if (existing) existing.remove();
+  }
 
   const reactionsRow = document.createElement("div");
   reactionsRow.className = "reactions";
@@ -1322,6 +1350,15 @@ function appendChatMessage(from, payload) {
     downloadBtn.textContent = "⬇";
     downloadBtn.dataset.download = payload.audioData;
     downloadBtn.dataset.filename = payload.name || "voice-message.webm";
+    menuActions.appendChild(downloadBtn);
+  }
+  if (payload.type === "file" && payload.fileData) {
+    const downloadBtn = document.createElement("button");
+    downloadBtn.type = "button";
+    downloadBtn.className = "edit-btn";
+    downloadBtn.textContent = "⬇";
+    downloadBtn.dataset.download = payload.fileData;
+    downloadBtn.dataset.filename = payload.name || "file";
     menuActions.appendChild(downloadBtn);
   }
   if (from === "me") {
@@ -1387,11 +1424,16 @@ async function sendPayload(payload) {
     payload.time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
+  const isUpload = payload.type === "image" || payload.type === "audio" || payload.type === "file";
+  if (isUpload) {
+    appendChatMessage("me", { ...payload, uploading: true });
+  }
+
   const serialized = JSON.stringify(payload);
 
   if (serialized.length <= CHUNK_SIZE) {
     const encrypted = await encryptMessage(sharedKey, serialized);
-    dataChannel.send(encrypted);
+    await sendEncrypted(encrypted);
   } else {
     const id = crypto.randomUUID();
     for (let i = 0; i < serialized.length; i += CHUNK_SIZE) {
@@ -1404,10 +1446,27 @@ async function sendPayload(payload) {
         final: i + CHUNK_SIZE >= serialized.length
       };
       const encryptedChunk = await encryptMessage(sharedKey, JSON.stringify(chunk));
-      dataChannel.send(encryptedChunk);
+      await sendEncrypted(encryptedChunk);
     }
   }
   return true;
+}
+
+async function sendEncrypted(data) {
+  if (!dataChannel) return;
+  if (dataChannel.bufferedAmountLowThreshold < 65536) {
+    dataChannel.bufferedAmountLowThreshold = 65536;
+  }
+  dataChannel.send(data);
+  if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold) {
+    await new Promise(resolve => {
+      const handler = () => {
+        dataChannel.removeEventListener("bufferedamountlow", handler);
+        resolve();
+      };
+      dataChannel.addEventListener("bufferedamountlow", handler);
+    });
+  }
 }
 
 function handleIncomingPayload(serialized) {
@@ -1462,6 +1521,14 @@ function handleIncomingPayload(serialized) {
 
   appendChatMessage("peer", payload);
   setTypingIndicator(false);
+
+  if (payload.uploading) {
+    // ignore intermediate uploading markers from peer
+    return;
+  }
+
+  const pendingUpload = document.querySelector(`.uploading[data-uploading-for="${payload.id}"]`);
+  if (pendingUpload) pendingUpload.remove();
 }
 
 async function requestMicPermission() {
@@ -1763,10 +1830,18 @@ photoInput.addEventListener("change", () => {
 
   const reader = new FileReader();
   reader.onload = async () => {
-    const imageData = reader.result;
-    if (typeof imageData !== "string") return;
+    const dataUrl = reader.result;
+    if (typeof dataUrl !== "string") return;
 
-    const payload = { type: "image", imageData, name: file.name };
+    let payload;
+    if (file.type && file.type.startsWith("image/")) {
+      payload = { type: "image", imageData: dataUrl, name: file.name };
+    } else if (file.type && file.type.startsWith("audio/")) {
+      payload = { type: "audio", audioData: dataUrl, name: file.name };
+    } else {
+      payload = { type: "file", fileData: dataUrl, name: file.name, mime: file.type || "file" };
+    }
+
     const sent = await sendPayload(payload);
     if (sent) {
       appendChatMessage("me", payload);
