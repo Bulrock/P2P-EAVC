@@ -102,7 +102,6 @@
       transition: 0.2s;
     }
 
-    /* Checked state */
     .switch input:checked + .slider {
       background-color: #0ea5e9;
     }
@@ -114,14 +113,18 @@
 
     main {
       flex: 1;
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 1rem;
       padding: 1rem;
+      overflow: hidden;
     }
 
     @media (min-width: 900px) {
       main {
+        display: grid;
         grid-template-columns: 1.2fr 0.8fr;
+        overflow: visible;
       }
     }
 
@@ -132,8 +135,14 @@
       box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
       padding: 1rem;
       display: flex;
+      flex: 0 0 auto;
       flex-direction: column;
       gap: 0.85rem;
+    }
+
+    .card:last-child {
+      flex: 1 1 auto;
+      overflow: hidden;
     }
 
     .card h2 {
@@ -233,6 +242,7 @@
       display: flex;
       align-items: center;
       gap: 0.3rem;
+      user-select: none;
     }
 
     .status-dot {
@@ -240,7 +250,13 @@
       height: 0.55rem;
       border-radius: 999px;
       background: #f97316;
-      box-shadow: 0 0 12px rgba(249, 115, 22, 0.7);
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .status-dot.disconnected {
+      background: #ef4444;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
     }
 
     .status-dot.connected {
@@ -248,9 +264,24 @@
       box-shadow: 0 0 12px rgba(34, 197, 94, 0.7);
     }
 
-    .status-dot.disconnected {
-      background: #ef4444;
-      box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+    .status-dot.connecting {
+      background: #f97316;
+      box-shadow: 0 0 12px rgba(249, 115, 22, 0.7);
+    }
+
+
+    /* Accordion header */
+    .accordion-header {
+      cursor: pointer;
+    }
+
+    #connChevron {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    .accordion-body {
+      margin-top: 0.75rem;
     }
 
     /* Video section is hidden by default */
@@ -287,6 +318,8 @@
 
     .chat-box {
       display: flex;
+      flex: 1;
+      min-height: 0;
       flex-direction: column;
       gap: 0.5rem;
       height: 100%;
@@ -294,6 +327,7 @@
 
     .chat-messages {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       border-radius: 0.6rem;
       border: 1px solid #1f2937;
@@ -378,77 +412,80 @@
 <main>
 
   <!-- LEFT: Signaling + Video -->
-  <section class="card">
-    <h2>
-      Connection & Media
+  <section class="card" id="connCard">
+    <h2 id="connHeader" class="accordion-header">
+      <span>Connection &amp; Media</span>
       <span class="status-line">
         <span id="connDot" class="status-dot"></span>
         <span id="connStatus">Disconnected</span>
+        <span id="connChevron">▾</span>
       </span>
     </h2>
 
-    <!-- HOST SECTION -->
-    <div id="hostSection">
-      <h3>Host flow <span class="pill">You start the call</span></h3>
-      <div class="row">
-        <button id="btnCreateOffer">1. Host: Create offer</button>
-        <button id="btnReset" class="secondary small">Reset</button>
-      </div>
-
-      <div class="label">Offer blob (send to guest)</div>
-      <div class="row">
-        <textarea id="offerOut"></textarea>
-        <button class="secondary small" id="btnCopyOffer">Copy</button>
-      </div>
-
-      <div class="label">Answer blob from guest</div>
-      <div class="row">
-        <textarea id="answerIn"></textarea>
-        <button class="secondary small" id="btnApplyAnswer">Apply</button>
-      </div>
-    </div>
-
-    <!-- GUEST SECTION -->
-    <div id="guestSection">
-      <h3>Guest flow <span class="pill">You join the call</span></h3>
-
-      <div class="label">Offer blob from host</div>
-      <textarea id="offerIn"></textarea>
-
-      <div class="row">
-        <button id="btnAcceptOffer">2. Guest: Accept offer</button>
-      </div>
-
-      <div class="label">Your answer blob</div>
-      <div class="row">
-        <textarea id="answerOut"></textarea>
-        <button id="btnCopyAnswerGuest" class="secondary small">Copy</button>
-      </div>
-    </div>
-
-    <!-- MEDIA -->
-    <h3>Media</h3>
-    <label class="status-line">
-      <input type="checkbox" id="chkMedia" />
-      <span>Use camera &amp; mic (optional — check to enable)</span>
-    </label>
-
-    <!-- VIDEO WRAPPER (hidden by default) -->
-    <div id="videoWrapper">
-      <div class="videos">
-        <div>
-          <div class="label">You</div>
-          <video id="localVideo" autoplay playsinline muted></video>
+    <div id="connBody" class="accordion-body">
+      <!-- HOST SECTION -->
+      <div id="hostSection">
+        <h3>Host flow <span class="pill">You start the call</span></h3>
+        <div class="row">
+          <button id="btnCreateOffer">1. Host: Create offer</button>
+          <button id="btnReset" class="secondary small">Reset</button>
         </div>
-        <div>
-          <div class="label">Peer</div>
-          <video id="remoteVideo" autoplay playsinline></video>
+
+        <div class="label">Offer blob (send to guest)</div>
+        <div class="row">
+          <textarea id="offerOut"></textarea>
+          <button class="secondary small" id="btnCopyOffer">Copy</button>
+        </div>
+
+        <div class="label">Answer blob from guest</div>
+        <div class="row">
+          <textarea id="answerIn"></textarea>
+          <button class="secondary small" id="btnApplyAnswer">Apply</button>
         </div>
       </div>
-    </div>
 
-    <h3>Log</h3>
-    <div class="logs" id="log"></div>
+      <!-- GUEST SECTION -->
+      <div id="guestSection">
+        <h3>Guest flow <span class="pill">You join the call</span></h3>
+
+        <div class="label">Offer blob from host</div>
+        <textarea id="offerIn"></textarea>
+
+        <div class="row">
+          <button id="btnAcceptOffer">2. Guest: Accept offer</button>
+        </div>
+
+        <div class="label">Your answer blob</div>
+        <div class="row">
+          <textarea id="answerOut"></textarea>
+          <button id="btnCopyAnswerGuest" class="secondary small">Copy</button>
+        </div>
+      </div>
+
+      <!-- MEDIA -->
+      <h3>Media</h3>
+      <label class="status-line">
+        <input type="checkbox" id="chkMedia" />
+        <span>Use camera &amp; mic (optional — check to enable)</span>
+      </label>
+
+      <!-- VIDEO WRAPPER (hidden by default) -->
+      <div id="videoWrapper">
+        <div class="videos">
+          <div>
+            <div class="label">You</div>
+            <video id="localVideo" autoplay playsinline muted></video>
+          </div>
+          <div>
+            <div class="label">Peer</div>
+            <video id="remoteVideo" autoplay playsinline></video>
+          </div>
+        </div>
+      </div>
+
+      <h3>Log</h3>
+      <div class="logs" id="log"></div>
+    </div>
   </section>
 
   <!-- RIGHT: Chat -->
@@ -478,6 +515,7 @@
   <span>Close/reload = all keys gone.</span>
   <span>Tip: add your TURN server for better NAT traversal.</span>
 </footer>
+
 <script>
 /* ============================================
    ICE SERVERS (STUN + optional TURN)
@@ -505,6 +543,11 @@ let isHost = null;
 const logEl = document.getElementById("log");
 const connDot = document.getElementById("connDot");
 const connStatus = document.getElementById("connStatus");
+const connHeader = document.getElementById("connHeader");
+const connBody = document.getElementById("connBody");
+const connChevron = document.getElementById("connChevron");
+let connCollapsed = false;
+
 const chatStatus = document.getElementById("chatStatus");
 const chatMessages = document.getElementById("chatMessages");
 
@@ -523,6 +566,19 @@ const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 
 /* ============================================
+   Accordion helpers
+============================================ */
+function setAccordionCollapsed(collapsed) {
+  connCollapsed = collapsed;
+  connBody.style.display = collapsed ? "none" : "";
+  connChevron.textContent = collapsed ? "▸" : "▾";
+}
+
+connHeader.addEventListener("click", () => {
+  setAccordionCollapsed(!connCollapsed);
+});
+
+/* ============================================
    UI Helpers
 ============================================ */
 function log(msg) {
@@ -533,11 +589,22 @@ function log(msg) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function setConnectionStatus(status) {
-  connStatus.textContent = status;
-  connDot.classList.remove("connected", "disconnected");
-  if (status === "Connected") connDot.classList.add("connected");
-  if (status === "Disconnected") connDot.classList.add("disconnected");
+function setConnectionStatus(state) {
+  connDot.classList.remove("connected", "disconnected", "connecting");
+
+  if (state === "Connected") {
+    connDot.classList.add("connected");
+    connStatus.textContent = "Connected";
+    setAccordionCollapsed(true);
+
+  } else if (state === "Connecting…") {
+    connDot.classList.add("connecting");
+    connStatus.textContent = "Connecting…";
+
+  } else {
+    connDot.classList.add("disconnected");
+    connStatus.textContent = "Disconnected";
+  }
 }
 
 function setChatStatus(text) {
@@ -603,6 +670,8 @@ function resetState() {
   setConnectionStatus("Disconnected");
   setChatStatus("DataChannel: not ready");
   updateVideoUI();
+  // default accordion open
+  setAccordionCollapsed(false);
   updateModeUI();
 
   log("Ready. Choose Host or Guest to begin.");
@@ -661,8 +730,17 @@ function createPeerConnection() {
   pc.oniceconnectionstatechange = () => {
     const state = pc.iceConnectionState;
     log(`ICE state: ${state}`);
-    if (state === "connected" || state === "completed") setConnectionStatus("Connected");
-    if (state === "failed" || state === "disconnected") setConnectionStatus("Disconnected");
+    if (state === "connected" || state === "completed") {
+      setConnectionStatus("Connected");
+    } else if (state === "checking") {
+      setConnectionStatus("Connecting…");
+    } else if (
+      state === "failed" ||
+      state === "disconnected" ||
+      state === "closed"
+    ) {
+      setConnectionStatus("Disconnected");
+    }
   };
 
   pc.ontrack = event => {
