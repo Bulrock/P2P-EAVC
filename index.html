@@ -220,6 +220,18 @@
       pointer-events: none;
     }
 
+    #btnSend:disabled {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    #btnPhoto:disabled {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
+    }
+
     textarea {
       width: 100%;
       min-height: 70px;
@@ -391,12 +403,41 @@
       font-size: 0.6rem;
     }
 
+    .bubble img {
+      max-width: 180px;
+      border-radius: 0.5rem;
+      display: block;
+      margin-top: 0.25rem;
+    }
+
+    .download-link {
+      display: inline-block;
+      margin-top: 0.25rem;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      text-decoration: none;
+      border-bottom: 1px dashed #374151;
+    }
+
+    .download-link:hover {
+      color: #e5e7eb;
+    }
+
     .chat-input-row {
       display: flex;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
-    .chat-input-row input {
+    .chat-text-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .chat-input {
       flex: 1;
       border-radius: 999px;
       border: 1px solid #374151;
@@ -404,6 +445,12 @@
       padding: 0.4rem 0.6rem;
       color: white;
       font-size: 0.8rem;
+      min-width: 0;
+    }
+
+    .chat-input:disabled {
+      opacity: 0.5;
+      cursor: default;
     }
 
     footer {
@@ -536,16 +583,30 @@
       <span class="pill">AES-GCM + DataChannel</span>
     </h2>
 
-    <div class="chat-box">
-      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-box">
+        <div class="chat-messages" id="chatMessages"></div>
 
-      <div class="chat-input-row">
-        <input id="chatInput" placeholder="Type a message…" />
-        <button id="btnSend">Send</button>
-      </div>
+        <div class="chat-input-row">
+          <div class="chat-text-wrap">
+            <select id="emojiSelect" class="chat-input" style="flex:0 0 120px; max-width:140px;">
+              <option value="">🙂 Emojis</option>
+              <option>😀</option><option>😁</option><option>😂</option><option>🤣</option><option>😊</option>
+              <option>😍</option><option>🤩</option><option>😘</option><option>😎</option><option>🤔</option>
+              <option>😇</option><option>😅</option><option>🙃</option><option>😴</option><option>🤯</option>
+              <option>😱</option><option>🤗</option><option>👍</option><option>🙏</option><option>🎉</option>
+              <option>🔥</option><option>🌟</option><option>💡</option><option>❤️</option><option>🧠</option>
+            </select>
+            <input id="chatInput" class="chat-input" placeholder="Type a message…" />
+          </div>
+          <div class="chat-text-wrap" style="flex:0 0 auto; gap:0.3rem;">
+            <input id="photoInput" type="file" accept="image/*" style="display:none;" />
+            <button id="btnPhoto" class="secondary small" type="button">📷</button>
+            <button id="btnSend">Send</button>
+          </div>
+        </div>
 
-      <div class="status-line">
-        💬 <span id="chatStatus">DataChannel: not ready</span>
+        <div class="status-line">
+          💬 <span id="chatStatus">DataChannel: not ready</span>
       </div>
     </div>
   </section>
@@ -553,7 +614,7 @@
 </main>
 
 <footer>
-  <span>Close/reload = all keys gone</span>
+  <span>Close/reload = all keys gone.</span>
 </footer>
 
 <script>
@@ -579,6 +640,8 @@ let sharedKey = null;
 let localStream = null;
 let remoteStream = null;
 let isHost = null;
+const pendingChunks = new Map();
+const CHUNK_SIZE = 16000;
 
 // for correct connection status
 let iceState = "new";
@@ -600,6 +663,10 @@ const offerIn = document.getElementById("offerIn");
 const answerOut = document.getElementById("answerOut");
 const answerIn = document.getElementById("answerIn");
 const chatInput = document.getElementById("chatInput");
+const btnSend = document.getElementById("btnSend");
+const emojiSelect = document.getElementById("emojiSelect");
+const photoInput = document.getElementById("photoInput");
+const btnPhoto = document.getElementById("btnPhoto");
 
 const modeToggle = document.getElementById("modeToggle");
 
@@ -665,6 +732,15 @@ function updateFlowHeaderText() {
   }
 }
 
+function updateSendControls() {
+  const ready = dataChannel && dataChannel.readyState === "open" && sharedKey;
+  btnSend.disabled = !ready;
+  btnPhoto.disabled = !ready;
+  emojiSelect.disabled = !ready;
+  photoInput.disabled = !ready;
+  chatInput.disabled = !ready;
+}
+
 function log(msg) {
   const t = new Date().toLocaleTimeString();
   const line = `[${t}] ${msg}`;
@@ -714,6 +790,7 @@ function recomputeConnectionStatus() {
 
 function setChatStatus(text) {
   chatStatus.textContent = text;
+  updateSendControls();
 }
 
 /* ============================================
@@ -779,6 +856,7 @@ function resetState() {
 
   setConnectionStatus("Disconnected");
   setChatStatus("DataChannel: not ready");
+  updateSendControls();
   updateVideoUI();
   // default accordion open
   setAccordionCollapsed(false);
@@ -881,18 +959,20 @@ function setupDataChannelHandlers() {
     dcOpen = true;
     log("DataChannel open.");
     setChatStatus("DataChannel: open");
+    updateSendControls();
     recomputeConnectionStatus();
   };
   dataChannel.onclose = () => {
     dcOpen = false;
     log("DataChannel closed.");
     setChatStatus("DataChannel: closed");
+    updateSendControls();
     recomputeConnectionStatus();
   };
   dataChannel.onmessage = async event => {
     try {
-      const text = await decryptMessage(sharedKey, event.data);
-      appendChatMessage("peer", text);
+      const decrypted = await decryptMessage(sharedKey, event.data);
+      handleIncomingPayload(decrypted);
     } catch (e) {
       log("Decrypt error: " + e);
     }
@@ -902,9 +982,9 @@ function setupDataChannelHandlers() {
 /* ============================================
    Chat UI
 ============================================ */
-function appendChatMessage(from, text) {
+function appendChatMessage(from, payload) {
   const msg = document.createElement("div");
-  msg.className = "msg " + (from === "me" ? "me" : "guest");
+  msg.className = "msg " + (from === "me" ? "me" : "peer");
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
@@ -913,7 +993,21 @@ function appendChatMessage(from, text) {
   small.textContent = from === "me" ? "You" : "Guest";
 
   const body = document.createElement("div");
-  body.textContent = text;
+  if (payload.type === "image" && payload.imageData) {
+    body.textContent = "";
+    const img = document.createElement("img");
+    img.src = payload.imageData;
+    img.alt = payload.name || "Shared image";
+    const link = document.createElement("a");
+    link.href = payload.imageData;
+    link.download = payload.name || "image";
+    link.textContent = "Download";
+    link.className = "download-link";
+    body.appendChild(img);
+    body.appendChild(link);
+  } else {
+    body.textContent = payload.text || "";
+  }
 
   bubble.appendChild(small);
   bubble.appendChild(body);
@@ -921,6 +1015,72 @@ function appendChatMessage(from, text) {
 
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function sendPayload(payload) {
+  if (!dataChannel || dataChannel.readyState !== "open") {
+    log("Channel not open.");
+    return false;
+  }
+  if (!sharedKey) {
+    log("Missing key.");
+    return false;
+  }
+
+  const serialized = JSON.stringify(payload);
+
+  if (serialized.length <= CHUNK_SIZE) {
+    const encrypted = await encryptMessage(sharedKey, serialized);
+    dataChannel.send(encrypted);
+  } else {
+    const id = crypto.randomUUID();
+    for (let i = 0; i < serialized.length; i += CHUNK_SIZE) {
+      const slice = serialized.slice(i, i + CHUNK_SIZE);
+      const chunk = {
+        type: "chunk",
+        id,
+        payloadType: payload.type,
+        data: slice,
+        final: i + CHUNK_SIZE >= serialized.length
+      };
+      const encryptedChunk = await encryptMessage(sharedKey, JSON.stringify(chunk));
+      dataChannel.send(encryptedChunk);
+    }
+  }
+  return true;
+}
+
+function handleIncomingPayload(serialized) {
+  let payload;
+  try {
+    payload = JSON.parse(serialized);
+  } catch (e) {
+    payload = { type: "text", text: serialized };
+  }
+
+  if (!payload || !payload.type) {
+    payload = { type: "text", text: serialized };
+  }
+
+  if (payload.type === "chunk" && payload.id) {
+    const existing = pendingChunks.get(payload.id) || { data: "" };
+    existing.data += payload.data || "";
+    pendingChunks.set(payload.id, existing);
+
+    if (payload.final) {
+      try {
+        const fullPayload = JSON.parse(existing.data);
+        pendingChunks.delete(payload.id);
+        appendChatMessage("peer", fullPayload);
+      } catch (e) {
+        log("Chunk assemble error: " + e);
+        pendingChunks.delete(payload.id);
+      }
+    }
+    return;
+  }
+
+  appendChatMessage("peer", payload);
 }
 
 /* ============================================
@@ -1050,22 +1210,16 @@ document.getElementById("btnCopyAnswerGuest").addEventListener("click", () => {
 /* ============================================
    Chat Send
 ============================================ */
-document.getElementById("btnSend").addEventListener("click", async () => {
+btnSend.addEventListener("click", async () => {
   const text = chatInput.value.trim();
   if (!text) return;
 
-  if (!dataChannel || dataChannel.readyState !== "open") {
-    return log("Channel not open.");
+  const payload = { type: "text", text };
+  const sent = await sendPayload(payload);
+  if (sent) {
+    appendChatMessage("me", payload);
+    chatInput.value = "";
   }
-  if (!sharedKey) {
-    return log("Missing key.");
-  }
-
-  const encrypted = await encryptMessage(sharedKey, text);
-  dataChannel.send(encrypted);
-
-  appendChatMessage("me", text);
-  chatInput.value = "";
 });
 
 chatInput.addEventListener("keydown", e => {
@@ -1073,6 +1227,37 @@ chatInput.addEventListener("keydown", e => {
     e.preventDefault();
     document.getElementById("btnSend").click();
   }
+});
+
+emojiSelect.addEventListener("change", () => {
+  const emoji = emojiSelect.value;
+  if (!emoji) return;
+  chatInput.value += emoji;
+  chatInput.focus();
+  emojiSelect.selectedIndex = 0;
+});
+
+btnPhoto.addEventListener("click", () => {
+  photoInput.click();
+});
+
+photoInput.addEventListener("change", () => {
+  const file = photoInput.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const imageData = reader.result;
+    if (typeof imageData !== "string") return;
+
+    const payload = { type: "image", imageData, name: file.name };
+    const sent = await sendPayload(payload);
+    if (sent) {
+      appendChatMessage("me", payload);
+    }
+    photoInput.value = "";
+  };
+  reader.readAsDataURL(file);
 });
 
 /* ============================================
