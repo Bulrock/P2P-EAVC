@@ -596,7 +596,10 @@
       padding: 0.55rem 0.9rem;
       color: white;
       font-size: 0.9rem;
+      min-height: 40px;
       height: 40px;
+      resize: none;
+      overflow-y: hidden;
     }
 
     .chat-input:disabled {
@@ -739,11 +742,11 @@
 
       <div class="chat-input-row">
         <div class="chat-text-wrap" style="width:100%; gap:0.3rem;">
-          <input id="chatInput" class="chat-input" placeholder="Type a message…" style="flex:1 1 auto; width:100%;" />
+          <textarea id="chatInput" class="chat-input" placeholder="Type a message…" style="flex:1 1 auto; width:100%; min-height:64px; max-height:160px; height:64px; resize:vertical; overflow-y:auto; border-radius:0.75rem;"></textarea>
         </div>
 
         <div class="chat-text-wrap" style="width:100%; gap:0.3rem; margin-top:0.4rem; flex-wrap:nowrap;">
-          <select id="emojiSelect" class="chat-input" style="flex:1 0 25%; max-width:25%; min-width:90px; height:40px; padding: 0 0.2rem;">
+          <select id="emojiSelect" class="chat-input" style="flex:1 0 25%; max-width:25%; min-width:90px; height:40px; padding: 0 0.2rem; line-height:40px;">
             <option value="">🙂 Emojis</option>
             <option>😀</option><option>😁</option><option>😂</option><option>🤣</option><option>😊</option>
             <option>😍</option><option>🤩</option><option>😘</option><option>😎</option><option>🤔</option>
@@ -753,9 +756,9 @@
             <option>💩</option>
           </select>
           <input id="photoInput" type="file" accept="*/*" style="display:none;" />
-          <button id="btnPhoto" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.3rem;">📎</button>
-          <button id="btnRecord" class="secondary small" type="button" style="height:40px; flex:0 0 40px; justify-content:center; font-size:1.3rem;">🎤</button>
-          <button id="btnSend" style="height:40px; flex:1 1 25%; justify-content:center; font-size: 0.9rem; color: white;">Send</button>
+          <button id="btnPhoto" class="secondary small" type="button" style="height:40px; flex:0 1 40px; justify-content:center; font-size:1.3rem;">📎</button>
+          <button id="btnRecord" class="secondary small" type="button" style="height:40px; flex:0 1 40px; justify-content:center; font-size:1.3rem;">🎤</button>
+          <button id="btnSend" style="height:40px; flex:1 1 auto; justify-content:center; font-size: 0.9rem; color: white;">Send</button>
         </div>
       </div
 
