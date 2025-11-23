@@ -214,6 +214,12 @@
       box-shadow: none;
     }
 
+    #btnDisconnect:disabled {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
+    }
+
     textarea {
       width: 100%;
       min-height: 70px;
@@ -329,6 +335,14 @@
       background: #020617;
     }
 
+    #flowSection.collapsed,
+    #logBody.collapsed {
+      display: none;
+    }
+    #logHeader {
+      cursor: pointer;
+    }
+
     .chat-box {
       display: flex;
       flex: 1;
@@ -406,11 +420,11 @@
 
 <header>
   <div class="lock-badge">
-    <span>🔒 E2E P2P Encrypted AV Chat</span>
+    <span>🔒 E2E P2P Chat</span>
     <span>AES-256 • WebRTC</span>
   </div>
 
-  <div class="mode-select" style="align-items:center;">
+  <div class="mode-select" style="align-items:center; width:100%; justify-content:flex-start; position:relative;">
     <span style="font-size:0.8rem; margin-right:0.4rem;">Host</span>
 
     <label class="switch">
@@ -419,8 +433,15 @@
     </label>
 
     <span style="font-size:0.8rem; margin-left:0.4rem;">Guest</span>
+
+    <!-- Disconnect button floating on the right -->
+    <button id="btnDisconnect" class="secondary small" disabled 
+            style="position:absolute; right:0; top:50%; transform:translateY(-50%);">
+      Disconnect
+    </button>
   </div>
 </header>
+
 
 <main>
 
@@ -436,42 +457,47 @@
     </h2>
 
     <div id="connBody" class="accordion-body">
-      <!-- HOST SECTION -->
-      <div id="hostSection">
-        <h3>Host flow <span class="pill">You start the call</span></h3>
-        <div class="row">
-          <button id="btnCreateOffer">1. Host: Create offer</button>
-          <button id="btnReset" class="secondary small">Reset</button>
+      <h3 id="flowHeader" class="accordion-header">
+        <span><span id="flowTitle">Host flow</span> <span id="flowPill" class="pill">You start the call</span></span>
+        <span id="flowChevron">▾</span>
+      </h3>
+      <div id="flowSection">
+
+        <!-- HOST SECTION -->
+        <div id="hostSection">
+          <div class="row">
+            <button id="btnCreateOffer">1. Host: Create offer</button>
+            <button id="btnReset" class="secondary small">Reset</button>
+          </div>
+  
+          <div class="label">Offer blob (send to guest)</div>
+          <div class="row">
+            <textarea id="offerOut"></textarea>
+            <button class="secondary small" id="btnCopyOffer">Copy</button>
+          </div>
+  
+          <div class="label">Answer blob from guest</div>
+          <div class="row">
+            <textarea id="answerIn"></textarea>
+            <button class="secondary small" id="btnApplyAnswer">Apply</button>
+          </div>
         </div>
+  
+        <!-- GUEST SECTION -->
+        <div id="guestSection">
 
-        <div class="label">Offer blob (send to guest)</div>
-        <div class="row">
-          <textarea id="offerOut"></textarea>
-          <button class="secondary small" id="btnCopyOffer">Copy</button>
-        </div>
-
-        <div class="label">Answer blob from guest</div>
-        <div class="row">
-          <textarea id="answerIn"></textarea>
-          <button class="secondary small" id="btnApplyAnswer">Apply</button>
-        </div>
-      </div>
-
-      <!-- GUEST SECTION -->
-      <div id="guestSection">
-        <h3>Guest flow <span class="pill">You join the call</span></h3>
-
-        <div class="label">Offer blob from host</div>
-        <textarea id="offerIn"></textarea>
-
-        <div class="row">
-          <button id="btnAcceptOffer">2. Guest: Accept offer</button>
-        </div>
-
-        <div class="label">Your answer blob</div>
-        <div class="row">
-          <textarea id="answerOut"></textarea>
-          <button id="btnCopyAnswerGuest" class="secondary small">Copy</button>
+          <div class="label">Offer blob from host</div>
+          <textarea id="offerIn"></textarea>
+  
+          <div class="row">
+            <button id="btnAcceptOffer">2. Guest: Accept offer</button>
+          </div>
+  
+          <div class="label">Your answer blob</div>
+          <div class="row">
+            <textarea id="answerOut"></textarea>
+            <button id="btnCopyAnswerGuest" class="secondary small">Copy</button>
+          </div>
         </div>
       </div>
 
@@ -496,8 +522,10 @@
         </div>
       </div>
 
-      <h3>Log</h3>
-      <div class="logs" id="log"></div>
+      <h3 id="logHeader" class="accordion-header">Log ▾</h3>
+      <div id="logBody">
+        <div class="logs" id="log"></div>
+      </div>
     </div>
   </section>
 
@@ -582,6 +610,31 @@ const videoWrapper = document.getElementById("videoWrapper");
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 
+const flowSection = document.getElementById("flowSection");
+const flowHeader = document.getElementById("flowHeader");
+const flowChevron = document.getElementById("flowChevron");
+const flowTitle = document.getElementById("flowTitle");
+const flowPill = document.getElementById("flowPill");
+const logHeader = document.getElementById("logHeader");
+const logBody   = document.getElementById("logBody");
+
+const btnDisconnect = document.getElementById("btnDisconnect");
+
+logHeader.addEventListener("click", () => {
+  logBody.classList.toggle("collapsed");
+  logHeader.textContent = logBody.classList.contains("collapsed") ? "Log ▸" : "Log ▾";
+});
+
+flowHeader.addEventListener("click", () => {
+  const collapsed = flowSection.classList.contains("collapsed");
+  setFlowCollapsed(!collapsed);
+});
+
+btnDisconnect.addEventListener("click", () => {
+  resetState();
+  btnDisconnect.disabled = true;
+});
+
 /* ============================================
    Accordion helpers
 ============================================ */
@@ -598,6 +651,21 @@ connHeader.addEventListener("click", () => {
 /* ============================================
    UI Helpers
 ============================================ */
+function setFlowCollapsed(collapsed) {
+  flowSection.classList.toggle("collapsed", collapsed);
+  flowChevron.textContent = collapsed ? "▸" : "▾";
+}
+
+function updateFlowHeaderText() {
+  if (isHost) {
+    flowTitle.textContent = "Host flow";
+    flowPill.textContent = "You start the call";
+  } else {
+    flowTitle.textContent = "Guest flow";
+    flowPill.textContent = "You join the call";
+  }
+}
+
 function log(msg) {
   const t = new Date().toLocaleTimeString();
   const line = `[${t}] ${msg}`;
@@ -612,15 +680,21 @@ function setConnectionStatus(label) {
   if (label === "Connected") {
     connDot.classList.add("connected");
 
-    if (!mediaCheckbox.checked) {
+    btnDisconnect.disabled = false;
+
+    if (mediaCheckbox.checked) {
+      setFlowCollapsed(true);
+      logBody.classList.add("collapsed");
+      logHeader.textContent = "Log ▸";
+    } else {
       setAccordionCollapsed(true);
     }
-
   } else if (label === "Connecting…") {
     connDot.classList.add("connecting");
 
   } else {
     connDot.classList.add("disconnected");
+    btnDisconnect.disabled = true;
   }
 
   connStatus.textContent = label;
@@ -663,6 +737,8 @@ function updateModeUI() {
     isHost = false;
     log("UI Mode → GUEST");
   }
+
+  updateFlowHeaderText();
 }
 
 modeToggle.addEventListener("change", updateModeUI);
@@ -707,6 +783,7 @@ function resetState() {
   updateVideoUI();
   // default accordion open
   setAccordionCollapsed(false);
+  setFlowCollapsed(false);
   updateModeUI();
 
   log("Ready. Choose Host or Guest to begin.");
