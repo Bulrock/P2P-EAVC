@@ -905,13 +905,13 @@ function setupDataChannelHandlers() {
 ============================================ */
 function appendChatMessage(from, text) {
   const msg = document.createElement("div");
-  msg.className = "msg " + (from === "me" ? "me" : "peer");
+  msg.className = "msg " + (from === "me" ? "me" : "guest");
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
   const small = document.createElement("small");
-  small.textContent = from === "me" ? "You" : "Peer";
+  small.textContent = from === "me" ? "You" : "Guest";
 
   const body = document.createElement("div");
   body.textContent = text;
