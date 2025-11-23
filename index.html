@@ -553,6 +553,10 @@ let localStream = null;
 let remoteStream = null;
 let isHost = null;
 
+// for correct connection status
+let iceState = "new";
+let dcOpen = false;
+
 const logEl = document.getElementById("log");
 const connDot = document.getElementById("connDot");
 const connStatus = document.getElementById("connStatus");
@@ -602,21 +606,36 @@ function log(msg) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function setConnectionStatus(state) {
+function setConnectionStatus(label) {
   connDot.classList.remove("connected", "disconnected", "connecting");
 
-  if (state === "Connected") {
+  if (label === "Connected") {
     connDot.classList.add("connected");
-    connStatus.textContent = "Connected";
-    setAccordionCollapsed(true);
 
-  } else if (state === "Connecting…") {
+    if (!mediaCheckbox.checked) {
+      setAccordionCollapsed(true);
+    }
+
+  } else if (label === "Connecting…") {
     connDot.classList.add("connecting");
-    connStatus.textContent = "Connecting…";
 
   } else {
     connDot.classList.add("disconnected");
-    connStatus.textContent = "Disconnected";
+  }
+
+  connStatus.textContent = label;
+}
+
+
+function recomputeConnectionStatus() {
+  const iceReady = (iceState === "connected" || iceState === "completed");
+
+  if (iceReady && dcOpen) {
+    setConnectionStatus("Connected");
+  } else if (iceReady || dcOpen) {
+    setConnectionStatus("Connecting…");
+  } else {
+    setConnectionStatus("Disconnected");
   }
 }
 
@@ -670,6 +689,9 @@ function resetState() {
   localStream = null;
   remoteStream = null;
   isHost = null;
+
+  iceState = "new";
+  dcOpen = false;
 
   offerOut.value = "";
   offerIn.value = "";
@@ -741,19 +763,9 @@ function createPeerConnection() {
   pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
   pc.oniceconnectionstatechange = () => {
-    const state = pc.iceConnectionState;
-    log(`ICE state: ${state}`);
-    if (state === "connected" || state === "completed") {
-      setConnectionStatus("Connected");
-    } else if (state === "checking") {
-      setConnectionStatus("Connecting…");
-    } else if (
-      state === "failed" ||
-      state === "disconnected" ||
-      state === "closed"
-    ) {
-      setConnectionStatus("Disconnected");
-    }
+    iceState = pc.iceConnectionState;
+    log(`ICE state: ${iceState}`);
+    recomputeConnectionStatus();
   };
 
   pc.ontrack = event => {
@@ -790,12 +802,16 @@ async function waitForIceGatheringComplete() {
 
 function setupDataChannelHandlers() {
   dataChannel.onopen = () => {
+    dcOpen = true;
     log("DataChannel open.");
     setChatStatus("DataChannel: open");
+    recomputeConnectionStatus();
   };
   dataChannel.onclose = () => {
+    dcOpen = false;
     log("DataChannel closed.");
     setChatStatus("DataChannel: closed");
+    recomputeConnectionStatus();
   };
   dataChannel.onmessage = async event => {
     try {
@@ -862,6 +878,7 @@ document.getElementById("btnCreateOffer").addEventListener("click", async () => 
     const blob = {
       v: 1,
       r: "h",
+      t: "offer",
       s: pc.localDescription,
       k: await exportKeyBase64(sharedKey)
     };
@@ -888,6 +905,10 @@ document.getElementById("btnAcceptOffer").addEventListener("click", async () => 
     log("Accepting offer...");
     const blob = JSON.parse(atob(b64));
 
+    if (!blob || !blob.s || !blob.k) {
+      return log("Invalid offer blob.");
+    }
+
     createPeerConnection();
 
     sharedKey = await importKeyBase64(blob.k);
@@ -908,6 +929,7 @@ document.getElementById("btnAcceptOffer").addEventListener("click", async () => 
     const ansBlob = {
       v: 1,
       r: "g",
+      t: "answer",
       s: pc.localDescription
     };
 
@@ -926,6 +948,10 @@ document.getElementById("btnApplyAnswer").addEventListener("click", async () => 
     log("Applying answer...");
     const blob = JSON.parse(atob(b64));
 
+    if (!blob || !blob.s) {
+      return log("Invalid answer blob.");
+    }
+
     await pc.setRemoteDescription(blob.s);
     log("Answer applied.");
   } catch (e) {
@@ -937,9 +963,11 @@ document.getElementById("btnApplyAnswer").addEventListener("click", async () => 
    Copy Buttons
 ============================================ */
 document.getElementById("btnCopyOffer").addEventListener("click", () => {
+  if (!offerOut.value.trim()) return;
   navigator.clipboard.writeText(offerOut.value.trim());
 });
 document.getElementById("btnCopyAnswerGuest").addEventListener("click", () => {
+  if (!answerOut.value.trim()) return;
   navigator.clipboard.writeText(answerOut.value.trim());
 });
 
