@@ -428,11 +428,11 @@
       display: flex;
       align-items: center;
       gap: 0.25rem;
-      margin-top: 0.25rem;
       flex-wrap: wrap;
       position: relative;
-      min-height: 26px;
-      padding: 2px 0;
+      min-height: 0;
+      padding: 0;
+      margin-top: 0;
     }
 
     .reaction-pill {
@@ -458,6 +458,21 @@
       border-color: #38bdf8;
     }
 
+    .edit-btn {
+      background: transparent;
+      border: 1px dashed #374151;
+      color: #9ca3af;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.5rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .edit-btn:hover {
+      color: #e5e7eb;
+      border-color: #e5e7eb;
+    }
+
     .react-menu {
       position: absolute;
       display: none;
@@ -471,6 +486,16 @@
       gap: 0.25rem;
       z-index: 10;
       min-width: 140px;
+    }
+
+    .msg.me .react-menu {
+      left: auto;
+      right: 0;
+    }
+
+    .msg.peer .react-menu {
+      left: 0;
+      right: auto;
     }
 
     .reactions:hover .react-menu,
@@ -487,6 +512,12 @@
       background: transparent;
       cursor: pointer;
       font-size: 1rem;
+    }
+
+    .reactions.has-reactions {
+      margin-top: 0.25rem;
+      padding: 2px 0;
+      min-height: 26px;
     }
 
     .download-link {
@@ -730,7 +761,8 @@ let micRequested = false;
 let typingTimeout = null;
 let lastTypingState = false;
 const messageReactions = new Map(); // id -> Map(emoji -> { host:bool, guest:bool })
-const REACTION_EMOJIS = ["👍", "😂", "😍", "🔥", "👏"];
+const REACTION_EMOJIS = ["👍", "😂", "😍", "🔥", "👏", "💩"];
+const messageBodies = new Map(); // id -> last text body for edits
 
 // for correct connection status
 let iceState = "new";
@@ -938,14 +970,6 @@ function attachReactionMenu(wrapper) {
   const open = () => {
     hideTimer && clearTimeout(hideTimer);
     wrapper.classList.add("open");
-    // Adjust horizontal position based on actor so host menus rise left to avoid scrollbar
-    if (getActorRole() === "host") {
-      menu.style.right = "0";
-      menu.style.left = "auto";
-    } else {
-      menu.style.left = "0";
-      menu.style.right = "auto";
-    }
   };
 
   const close = () => {
@@ -1176,6 +1200,7 @@ function appendChatMessage(from, payload) {
   const msg = document.createElement("div");
   msg.className = "msg " + (from === "me" ? "me" : "peer");
   msg.dataset.mid = payload.id;
+  if (from === "me") msg.dataset.own = "true";
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
@@ -1184,6 +1209,7 @@ function appendChatMessage(from, payload) {
   small.textContent = from === "me" ? "You" : "Guest";
 
   const body = document.createElement("div");
+  body.className = "msg-body";
   if (payload.type === "image" && payload.imageData) {
     body.textContent = "";
     const img = document.createElement("img");
@@ -1210,13 +1236,21 @@ function appendChatMessage(from, payload) {
     body.appendChild(link);
   } else {
     body.textContent = payload.text || "";
+    if (from === "me" && payload.type === "text") {
+      messageBodies.set(payload.id, payload.text || "");
+    }
   }
 
   bubble.appendChild(small);
   bubble.appendChild(body);
   const time = document.createElement("div");
   time.className = "timestamp";
-  time.textContent = payload.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  time.dataset.originalTime = payload.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (payload.edited) {
+    time.textContent = `edited ${time.dataset.originalTime}`;
+  } else {
+    time.textContent = time.dataset.originalTime;
+  }
   bubble.appendChild(time);
 
   const reactionsRow = document.createElement("div");
@@ -1231,10 +1265,24 @@ function appendChatMessage(from, payload) {
     opt.dataset.emoji = emoji;
     menu.appendChild(opt);
   });
+  if (from === "me" && payload.type === "text") {
+    const divider = document.createElement("div");
+    divider.style.width = "1px";
+    divider.style.background = "#1f2937";
+    divider.style.margin = "0 0.25rem";
+    menu.appendChild(divider);
+    const editOpt = document.createElement("button");
+    editOpt.type = "button";
+    editOpt.className = "edit-btn";
+    editOpt.textContent = "Edit";
+    editOpt.dataset.mid = payload.id;
+    menu.appendChild(editOpt);
+  }
   const reactionPills = document.createElement("div");
   reactionPills.className = "reaction-pills";
   reactionsRow.appendChild(reactionPills);
   reactionsRow.appendChild(menu);
+  reactionsRow.style.display = "flex";
   bubble.appendChild(reactionsRow);
   msg.appendChild(bubble);
 
@@ -1335,6 +1383,11 @@ function handleIncomingPayload(serialized) {
     return;
   }
 
+  if (payload.type === "edit" && payload.target && typeof payload.text === "string") {
+    applyEdit(payload.target, payload.text, payload.time, payload.edited);
+    return;
+  }
+
   appendChatMessage("peer", payload);
   setTypingIndicator(false);
 }
@@ -1404,12 +1457,21 @@ function renderReactions(targetId) {
   if (!msg) return;
   const pillsContainer = msg.querySelector(".reaction-pills");
   if (!pillsContainer) return;
+  const reactionsRow = msg.querySelector(".reactions");
+  if (!reactionsRow) return;
   pillsContainer.innerHTML = "";
 
   const map = messageReactions.get(targetId);
-  if (!map) return;
+  if (!map || map.size === 0) {
+    pillsContainer.style.display = "none";
+    reactionsRow.classList.remove("has-reactions");
+    reactionsRow.style.display = "flex";
+    return;
+  }
 
-  pillsContainer.style.display = map.size ? "flex" : "none";
+  pillsContainer.style.display = "flex";
+  reactionsRow.style.display = "flex";
+  reactionsRow.classList.add("has-reactions");
 
   for (const [emo, state] of map.entries()) {
     const count = (state.host ? 1 : 0) + (state.guest ? 1 : 0);
@@ -1422,6 +1484,22 @@ function renderReactions(targetId) {
     pill.dataset.target = targetId;
     pill.textContent = `${emo} ${count}`;
     pillsContainer.appendChild(pill);
+  }
+}
+
+function applyEdit(targetId, newText, newTime, editedFlag = true) {
+  const msg = chatMessages.querySelector(`[data-mid="${targetId}"]`);
+  if (!msg) return;
+  const body = msg.querySelector(".msg-body");
+  if (body) {
+    body.textContent = newText;
+    messageBodies.set(targetId, newText);
+  }
+  const timeEl = msg.querySelector(".timestamp");
+  if (timeEl) {
+    const t = newTime || timeEl.dataset.originalTime || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    timeEl.dataset.originalTime = t;
+    timeEl.textContent = editedFlag ? `edited ${t}` : t;
   }
 }
 
@@ -1709,6 +1787,21 @@ chatMessages.addEventListener("pointerdown", e => {
     e.preventDefault();
     handleReactionSelection(target);
     closeReactionMenus();
+    return;
+  }
+  if (target.classList.contains("edit-btn")) {
+    const id = target.dataset.mid;
+    if (!id) return;
+    const current = messageBodies.get(id) || "";
+    const next = prompt("Edit message", current);
+    if (next === null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === current) return;
+    const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const payload = { type: "edit", target: id, text: trimmed, edited: true, time };
+    sendPayload(payload).then(sent => {
+      if (sent) applyEdit(id, trimmed, time, true);
+    });
   }
 });
 
