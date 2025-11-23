@@ -232,6 +232,12 @@
       pointer-events: none;
     }
 
+    #btnRecord:disabled {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: none;
+    }
+
     textarea {
       width: 100%;
       min-height: 70px;
@@ -442,7 +448,7 @@
       border-radius: 999px;
       border: 1px solid #374151;
       background: #020617;
-      padding: 0.4rem 0.6rem;
+      padding: 0.4rem 0.9rem 0.4rem 0.6rem;
       color: white;
       font-size: 0.8rem;
       min-width: 0;
@@ -601,6 +607,7 @@
           <div class="chat-text-wrap" style="flex:0 0 auto; gap:0.3rem;">
             <input id="photoInput" type="file" accept="image/*" style="display:none;" />
             <button id="btnPhoto" class="secondary small" type="button">📷</button>
+            <button id="btnRecord" class="secondary small" type="button">🎤</button>
             <button id="btnSend">Send</button>
           </div>
         </div>
@@ -642,6 +649,11 @@ let remoteStream = null;
 let isHost = null;
 const pendingChunks = new Map();
 const CHUNK_SIZE = 16000;
+let mediaRecorder = null;
+let audioChunks = [];
+let micAllowed = false;
+let micRequesting = false;
+let micRequested = false;
 
 // for correct connection status
 let iceState = "new";
@@ -667,6 +679,7 @@ const btnSend = document.getElementById("btnSend");
 const emojiSelect = document.getElementById("emojiSelect");
 const photoInput = document.getElementById("photoInput");
 const btnPhoto = document.getElementById("btnPhoto");
+const btnRecord = document.getElementById("btnRecord");
 
 const modeToggle = document.getElementById("modeToggle");
 
@@ -736,6 +749,17 @@ function updateSendControls() {
   const ready = dataChannel && dataChannel.readyState === "open" && sharedKey;
   btnSend.disabled = !ready;
   btnPhoto.disabled = !ready;
+  if (ready && !micAllowed && !micRequesting && !micRequested) {
+    micRequesting = true;
+    micRequested = true;
+    requestMicPermission().finally(() => {
+      micRequesting = false;
+      updateSendControls();
+    });
+  }
+
+  const micBlocked = micRequested && !micAllowed;
+  btnRecord.disabled = !ready || micBlocked;
   emojiSelect.disabled = !ready;
   photoInput.disabled = !ready;
   chatInput.disabled = !ready;
@@ -834,6 +858,9 @@ function resetState() {
   if (pc) pc.close();
   if (dataChannel) dataChannel.close();
   if (localStream) localStream.getTracks().forEach(t => t.stop());
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+  }
 
   pc = null;
   dataChannel = null;
@@ -841,6 +868,8 @@ function resetState() {
   localStream = null;
   remoteStream = null;
   isHost = null;
+  mediaRecorder = null;
+  audioChunks = [];
 
   iceState = "new";
   dcOpen = false;
@@ -1005,6 +1034,18 @@ function appendChatMessage(from, payload) {
     link.className = "download-link";
     body.appendChild(img);
     body.appendChild(link);
+  } else if (payload.type === "audio" && payload.audioData) {
+    body.textContent = "";
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.src = payload.audioData;
+    const link = document.createElement("a");
+    link.href = payload.audioData;
+    link.download = payload.name || "voice-message.webm";
+    link.textContent = "Download";
+    link.className = "download-link";
+    body.appendChild(audio);
+    body.appendChild(link);
   } else {
     body.textContent = payload.text || "";
   }
@@ -1081,6 +1122,19 @@ function handleIncomingPayload(serialized) {
   }
 
   appendChatMessage("peer", payload);
+}
+
+async function requestMicPermission() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micAllowed = true;
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch (e) {
+    micAllowed = false;
+    log("Mic permission denied or unavailable.");
+    return false;
+  }
 }
 
 /* ============================================
@@ -1258,6 +1312,60 @@ photoInput.addEventListener("change", () => {
     photoInput.value = "";
   };
   reader.readAsDataURL(file);
+});
+
+btnRecord.addEventListener("click", async () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    btnRecord.textContent = "🎤";
+    return;
+  }
+
+  if (!micAllowed) {
+    micRequested = true;
+    btnRecord.disabled = true;
+    const granted = await requestMicPermission();
+    btnRecord.disabled = false;
+    updateSendControls();
+    if (!granted) {
+      return;
+    }
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) {
+        audioChunks.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      stream.getTracks().forEach(t => t.stop());
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const audioData = reader.result;
+        if (typeof audioData !== "string") return;
+
+        const payload = { type: "audio", audioData, name: `voice-${Date.now()}.webm` };
+        const sent = await sendPayload(payload);
+        if (sent) {
+          appendChatMessage("me", payload);
+        }
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+    btnRecord.textContent = "⏹";
+  } catch (e) {
+    log("Mic access error: " + e);
+    btnRecord.textContent = "🎤";
+  }
 });
 
 /* ============================================
