@@ -533,6 +533,11 @@
       color: #e5e7eb;
     }
 
+    .msg.me .download-link {
+      color: #0b1120;
+      border-color: #0ea5e9;
+    }
+
     .chat-input-row {
       display: flex;
       gap: 0.5rem;
@@ -1222,19 +1227,12 @@ function appendChatMessage(from, payload) {
     link.textContent = "Download";
     link.className = "download-link";
     body.appendChild(img);
-    body.appendChild(link);
   } else if (payload.type === "audio" && payload.audioData) {
     body.textContent = "";
     const audio = document.createElement("audio");
     audio.controls = true;
     audio.src = payload.audioData;
-    const link = document.createElement("a");
-    link.href = payload.audioData;
-    link.download = payload.name || "voice-message.webm";
-    link.textContent = "Download";
-    link.className = "download-link";
     body.appendChild(audio);
-    body.appendChild(link);
   } else {
     body.textContent = payload.text || "";
     if (from === "me" && payload.type === "text") {
@@ -1266,6 +1264,24 @@ function appendChatMessage(from, payload) {
     opt.dataset.emoji = emoji;
     menu.appendChild(opt);
   });
+  if (payload.type === "image" && payload.imageData) {
+    const downloadBtn = document.createElement("button");
+    downloadBtn.type = "button";
+    downloadBtn.className = "edit-btn";
+    downloadBtn.textContent = "⬇";
+    downloadBtn.dataset.download = payload.imageData;
+    downloadBtn.dataset.filename = payload.name || "image";
+    menu.appendChild(downloadBtn);
+  }
+  if (payload.type === "audio" && payload.audioData) {
+    const downloadBtn = document.createElement("button");
+    downloadBtn.type = "button";
+    downloadBtn.className = "edit-btn";
+    downloadBtn.textContent = "⬇";
+    downloadBtn.dataset.download = payload.audioData;
+    downloadBtn.dataset.filename = payload.name || "voice-message.webm";
+    menu.appendChild(downloadBtn);
+  }
   if (from === "me" && payload.type === "text") {
     const divider = document.createElement("div");
     divider.style.width = "1px";
@@ -1782,6 +1798,16 @@ chatMessages.addEventListener("pointerdown", e => {
         if (sent) applyReaction(id, emoji, actor, "remove");
       });
     }
+    return;
+  }
+  if (target.dataset.download) {
+    const data = target.dataset.download;
+    const name = target.dataset.filename || "file";
+    const a = document.createElement("a");
+    a.href = data;
+    a.download = name;
+    a.click();
+    closeReactionMenus();
     return;
   }
   if (target.classList.contains("react-option")) {
