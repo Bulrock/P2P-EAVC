@@ -473,6 +473,21 @@
       border-color: #e5e7eb;
     }
 
+    .delete-btn {
+      background: transparent;
+      border: 1px dashed #ef4444;
+      color: #ef4444;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.5rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .delete-btn:hover {
+      color: #fca5a5;
+      border-color: #fca5a5;
+    }
+
     .react-menu {
       position: absolute;
       display: none;
@@ -1291,9 +1306,17 @@ function appendChatMessage(from, payload) {
     const editOpt = document.createElement("button");
     editOpt.type = "button";
     editOpt.className = "edit-btn";
-    editOpt.textContent = "Edit";
+    editOpt.textContent = "✏️";
+    editOpt.title = "Edit";
     editOpt.dataset.mid = payload.id;
     menu.appendChild(editOpt);
+    const deleteOpt = document.createElement("button");
+    deleteOpt.type = "button";
+    deleteOpt.className = "delete-btn";
+    deleteOpt.textContent = "🗑️";
+    deleteOpt.title = "Delete";
+    deleteOpt.dataset.mid = payload.id;
+    menu.appendChild(deleteOpt);
   }
   const reactionPills = document.createElement("div");
   reactionPills.className = "reaction-pills";
@@ -1397,6 +1420,11 @@ function handleIncomingPayload(serialized) {
 
   if (payload.type === "reaction" && payload.target && payload.emoji) {
     applyReaction(payload.target, payload.emoji, payload.from, payload.action);
+    return;
+  }
+
+  if (payload.type === "delete" && payload.target) {
+    applyDelete(payload.target);
     return;
   }
 
@@ -1518,6 +1546,13 @@ function applyEdit(targetId, newText, newTime, editedFlag = true) {
     timeEl.dataset.originalTime = t;
     timeEl.textContent = editedFlag ? `edited ${t}` : t;
   }
+}
+
+function applyDelete(targetId) {
+  const msg = chatMessages.querySelector(`[data-mid="${targetId}"]`);
+  if (msg) msg.remove();
+  messageReactions.delete(targetId);
+  messageBodies.delete(targetId);
 }
 
 /* ============================================
@@ -1829,6 +1864,20 @@ chatMessages.addEventListener("pointerdown", e => {
     sendPayload(payload).then(sent => {
       if (sent) applyEdit(id, trimmed, time, true);
     });
+    closeReactionMenus();
+    return;
+  }
+  if (target.classList.contains("delete-btn")) {
+    const id = target.dataset.mid;
+    if (!id) return;
+    const confirmDelete = confirm("Delete this message?");
+    if (!confirmDelete) return;
+    const payload = { type: "delete", target: id };
+    sendPayload(payload).then(sent => {
+      if (sent) applyDelete(id);
+    });
+    closeReactionMenus();
+    return;
   }
 });
 
