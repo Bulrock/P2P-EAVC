@@ -372,7 +372,7 @@
 
     .chat-messages {
       flex: 1;
-      min-height: 0;
+      min-height: 40px;
       overflow-y: auto;
       border-radius: 0.6rem;
       border: 1px solid #1f2937;
@@ -416,6 +416,7 @@
       display: block;
       margin-top: 0.25rem;
     }
+
 
     .timestamp {
       text-align: right;
@@ -491,7 +492,7 @@
     .react-menu {
       position: absolute;
       display: none;
-      bottom: calc(100% + 6px);
+      top: calc(100% + 6px);
       left: 0;
       background: #0b1120;
       border: 1px solid #374151;
@@ -500,7 +501,11 @@
       box-shadow: 0 10px 20px rgba(0,0,0,0.4);
       gap: 0.25rem;
       z-index: 10;
-      min-width: 140px;
+      min-width: 180px;
+      max-width: 240px;
+      overflow: hidden;
+      gap: 0.35rem;
+      align-items: flex-start;
     }
 
     .msg.me .react-menu {
@@ -513,12 +518,7 @@
       right: auto;
     }
 
-    .reactions:hover .react-menu,
     .reactions.open .react-menu {
-      display: flex;
-    }
-
-    .bubble:hover .react-menu {
       display: flex;
     }
 
@@ -533,6 +533,20 @@
       margin-top: 0.25rem;
       padding: 2px 0;
       min-height: 26px;
+    }
+
+    .react-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 50px;
+    }
+
+    .react-emojis {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.2rem;
+      flex: 1;
     }
 
     .download-link {
@@ -1004,9 +1018,14 @@ function attachReactionMenu(wrapper) {
   wrapper.addEventListener("mouseleave", close);
   menu.addEventListener("mouseenter", open);
   menu.addEventListener("mouseleave", close);
+  const bubble = wrapper.closest(".bubble");
+  if (bubble) {
+    bubble.addEventListener("mouseenter", open);
+    bubble.addEventListener("mouseleave", close);
+  }
   wrapper.addEventListener("click", e => {
     const t = e.target;
-    if (t instanceof HTMLElement && t.classList.contains("react-option")) return;
+    if (t instanceof HTMLElement && (t.classList.contains("react-option") || t.classList.contains("edit-btn") || t.classList.contains("delete-btn"))) return;
     wrapper.classList.toggle("open");
   });
   menu.addEventListener("click", e => {
@@ -1273,14 +1292,20 @@ function appendChatMessage(from, payload) {
   reactionsRow.className = "reactions";
   const menu = document.createElement("div");
   menu.className = "react-menu";
+  const menuActions = document.createElement("div");
+  menuActions.className = "react-actions";
+  const menuEmojis = document.createElement("div");
+  menuEmojis.className = "react-emojis";
+
   REACTION_EMOJIS.forEach(emoji => {
     const opt = document.createElement("button");
     opt.type = "button";
     opt.className = "react-option";
     opt.textContent = emoji;
     opt.dataset.emoji = emoji;
-    menu.appendChild(opt);
+    menuEmojis.appendChild(opt);
   });
+
   if (payload.type === "image" && payload.imageData) {
     const downloadBtn = document.createElement("button");
     downloadBtn.type = "button";
@@ -1288,7 +1313,7 @@ function appendChatMessage(from, payload) {
     downloadBtn.textContent = "⬇";
     downloadBtn.dataset.download = payload.imageData;
     downloadBtn.dataset.filename = payload.name || "image";
-    menu.appendChild(downloadBtn);
+    menuActions.appendChild(downloadBtn);
   }
   if (payload.type === "audio" && payload.audioData) {
     const downloadBtn = document.createElement("button");
@@ -1297,29 +1322,29 @@ function appendChatMessage(from, payload) {
     downloadBtn.textContent = "⬇";
     downloadBtn.dataset.download = payload.audioData;
     downloadBtn.dataset.filename = payload.name || "voice-message.webm";
-    menu.appendChild(downloadBtn);
+    menuActions.appendChild(downloadBtn);
   }
-  if (from === "me" && payload.type === "text") {
-    const divider = document.createElement("div");
-    divider.style.width = "1px";
-    divider.style.background = "#1f2937";
-    divider.style.margin = "0 0.25rem";
-    menu.appendChild(divider);
-    const editOpt = document.createElement("button");
-    editOpt.type = "button";
-    editOpt.className = "edit-btn";
-    editOpt.textContent = "✏️";
-    editOpt.title = "Edit";
-    editOpt.dataset.mid = payload.id;
-    menu.appendChild(editOpt);
+  if (from === "me") {
+    if (payload.type === "text") {
+      const editOpt = document.createElement("button");
+      editOpt.type = "button";
+      editOpt.className = "edit-btn";
+      editOpt.textContent = "✏️";
+      editOpt.title = "Edit";
+      editOpt.dataset.mid = payload.id;
+      menuActions.appendChild(editOpt);
+    }
     const deleteOpt = document.createElement("button");
     deleteOpt.type = "button";
     deleteOpt.className = "delete-btn";
     deleteOpt.textContent = "🗑️";
     deleteOpt.title = "Delete";
     deleteOpt.dataset.mid = payload.id;
-    menu.appendChild(deleteOpt);
+    menuActions.appendChild(deleteOpt);
   }
+
+  menu.appendChild(menuActions);
+  menu.appendChild(menuEmojis);
   const reactionPills = document.createElement("div");
   reactionPills.className = "reaction-pills";
   reactionsRow.appendChild(reactionPills);
